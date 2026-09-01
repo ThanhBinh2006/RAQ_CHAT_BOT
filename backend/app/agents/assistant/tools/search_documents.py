@@ -6,7 +6,7 @@ from typing import Annotated
 from langchain_core.tools import tool
 from langchain_core.messages import ToolMessage
 from langgraph.prebuilt import InjectedState
-from langgraph.prebuilt.tool_node import InjectedToolCallId
+from langchain_core.tools import InjectedToolCallId
 from langgraph.types import Command
 
 
