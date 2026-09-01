@@ -4,10 +4,7 @@ Tool 2: generate_quiz — Invokes the quiz subgraph to generate quiz questions.
 
 from typing import Annotated, Optional
 from langchain_core.tools import tool
-from langchain_core.messages import ToolMessage
 from langgraph.prebuilt import InjectedState
-from langgraph.prebuilt.tool_node import InjectedToolCallId
-from langgraph.types import Command
 
 
 @tool
@@ -15,8 +12,7 @@ async def generate_quiz(
     num_questions: int,
     focus_topic: Optional[str],
     state: Annotated[dict, InjectedState],
-    tool_call_id: Annotated[str, InjectedToolCallId],
-) -> Command:
+) -> dict:
     """Sinh bộ đề trắc nghiệm N câu (tối đa 100) bám sát tài liệu trong Thư viện
     hiện tại. Dùng tool này khi người dùng yêu cầu 'tạo đề', 'tạo N câu trắc nghiệm',
     'sinh câu hỏi ôn tập', kèm chủ đề trọng tâm nếu có."""
@@ -50,10 +46,7 @@ async def generate_quiz(
 
     accepted = result.get("accepted_questions", [])
 
-    return Command(update={
+    return {
         "quiz_draft": accepted,
-        "messages": [ToolMessage(
-            content=f"Đã sinh xong {len(accepted)} câu hỏi trắc nghiệm.",
-            tool_call_id=tool_call_id,
-        )],
-    })
+        "message": f"Đã sinh xong {len(accepted)} câu hỏi trắc nghiệm.",
+    }

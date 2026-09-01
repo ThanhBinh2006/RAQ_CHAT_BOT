@@ -4,18 +4,14 @@ Tool 1: search_documents — RAG search using Command pattern.
 
 from typing import Annotated
 from langchain_core.tools import tool
-from langchain_core.messages import ToolMessage
 from langgraph.prebuilt import InjectedState
-from langchain_core.tools import InjectedToolCallId
-from langgraph.types import Command
 
 
 @tool
 async def search_documents(
     query: str,
     state: Annotated[dict, InjectedState],
-    tool_call_id: Annotated[str, InjectedToolCallId],
-) -> Command:
+) -> dict:
     """Tìm đoạn văn bản liên quan trong tài liệu của Thư viện hiện tại để trả lời
     câu hỏi kiến thức của người dùng. LUÔN dùng tool này khi người dùng hỏi về
     nội dung tài liệu, nhờ giải thích, tóm tắt, hoặc tra cứu thông tin cụ thể."""
@@ -45,7 +41,7 @@ async def search_documents(
     if not context_text:
         context_text = "Không tìm thấy tài liệu liên quan. Vui lòng thử lại với từ khóa khác."
 
-    return Command(update={
+    return {
         "citations": citations,
-        "messages": [ToolMessage(content=context_text, tool_call_id=tool_call_id)],
-    })
+        "context_text": context_text,
+    }
