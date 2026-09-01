@@ -97,7 +97,7 @@ class DocumentChunk(Base):
     chunk_index = Column(Integer)
     content = Column(Text, nullable=False)
     embedding = Column(Vector(768))  # pgvector 768-dim (text-embedding-004)
-    metadata = Column(JSONB)
+    meta_data = Column("metadata", JSONB)
 
     document = relationship("Document", back_populates="chunks")
 

@@ -171,7 +171,7 @@ async def ingest_document(document_id: str, file_content: bytes):
                         chunk_index=chunk["chunk_index"],
                         content=chunk["content"],
                         embedding=embedding,
-                        metadata={
+                        meta_data={
                             "file_name": doc.file_name,
                             "page_number": chunk["page_number"],
                         },
