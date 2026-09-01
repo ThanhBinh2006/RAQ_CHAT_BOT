@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>RAG Chatbot Schema — Full 100% Thuộc tính & Dây nối Khóa (1-N)</title>
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --card-bg: #111827;
+            --border: #1f2937;
+            --pk-color: #ef4444;
+            --fk-color: #f59e0b;
+            --line-color: #3b82f6;
+            --line-active: #06b6d4;
+            --text: #f3f4f6;
+            --text-dim: #9ca3af;
+            --type-color: #38bdf8;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+            background-color: var(--bg);
+            color: var(--text);
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        .header-area {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        h1 {
+            font-size: 22px;
+            margin-bottom: 6px;
+            color: #f8fafc;
+        }
+
+        p.desc {
+            font-size: 13px;
+            color: var(--text-dim);
+        }
+
+        .canvas-container {
+            position: relative;
+            width: 1540px;
+            margin: 0 auto;
+            min-height: 1200px;
+        }
+
+        svg#relation-svg {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .columns-wrapper {
+            display: grid;
+            grid-template-columns: 460px 480px 520px;
+            gap: 50px;
+            position: relative;
+            z-index: 20;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        .table-box {
+            background: var(--card-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5);
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+
+        .table-box:hover {
+            border-color: #60a5fa;
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .table-header {
+            background: #1e293b;
+            padding: 9px 14px;
+            font-weight: 700;
+            font-size: 13px;
+            border-top-left-radius: 7px;
+            border-top-right-radius: 7px;
+            display: flex;
+            justify-content: space-between;
+            color: #93c5fd;
+            border-bottom: 1px solid #334155;
+        }
+
+        .field-list {
+            list-style: none;
+            font-size: 11.5px;
+        }
+
+        .field-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 14px;
+            border-bottom: 1px solid #1a2234;
+            position: relative;
+            transition: background-color 0.15s;
+        }
+
+        .field-item:last-child {
+            border-bottom: none;
+        }
+
+        .field-item:hover {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .field-left {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .field-name {
+            color: #f1f5f9;
+            font-weight: 600;
+        }
+
+        .field-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .field-type {
+            color: var(--type-color);
+        }
+
+        .field-meta {
+            color: #64748b;
+            font-size: 10.5px;
+            font-style: italic;
+        }
+
+        .badge {
+            font-size: 9px;
+            font-weight: 700;
+            padding: 1px 5px;
+            border-radius: 3px;
+            line-height: 1.2;
+        }
+
+        .badge-pk {
+            background: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.5);
+        }
+
+        .badge-fk {
+            background: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.5);
+        }
+
+        .badge-nn {
+            background: rgba(99, 102, 241, 0.2);
+            color: #a5b4fc;
+        }
+
+        .badge-uq {
+            background: rgba(34, 197, 94, 0.2);
+            color: #86efac;
+        }
+
+        .pin {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        .pin-out {
+            right: -4px;
+            background: var(--pk-color);
+            box-shadow: 0 0 6px var(--pk-color);
+        }
+
+        .pin-in {
+            left: -4px;
+            background: var(--fk-color);
+            box-shadow: 0 0 6px var(--fk-color);
+        }
+
+        /* SVG Lines & Markers */
+        .relation-path {
+            fill: none;
+            stroke: var(--line-color);
+            stroke-width: 1.8;
+            stroke-opacity: 0.5;
+            transition: all 0.2s ease;
+        }
+
+        .relation-path.active {
+            stroke: var(--line-active);
+            stroke-width: 3.2;
+            stroke-opacity: 1;
+            filter: drop-shadow(0 0 4px #06b6d4);
+        }
+
+        .relation-tag {
+            font-size: 10px;
+            font-weight: 700;
+            fill: #ffffff;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="header-area">
+        <h1>Database Schema Chi Tiết 9 Bảng & Dây Nối Khóa (1-N)</h1>
+        <p class="desc">Dây nối chỉ chính xác từ hàng chứa <b>Primary Key (1)</b> màu đỏ sang hàng chứa <b>Foreign Key
+                (N)</b> màu vàng.</p>
+    </div>
+
+    <div class="canvas-container">
+        <svg id="relation-svg"></svg>
+
+        <div class="columns-wrapper">
+
+            <!-- CỘT 1: ROOT & USER -->
+            <div class="column">
+                <!-- 1. users -->
+                <div class="table-box" id="table-users">
+                    <div class="table-header"><span>1. users</span><span>Root Entity</span></div>
+                    <ul class="field-list">
+                        <li class="field-item" id="users-id">
+                            <div class="field-left"><span class="badge badge-pk">PK</span><span
+                                    class="field-name">id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">DEFAULT gen_v4()</span></div>
+                            <div class="pin pin-out"></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="badge badge-nn">NN</span><span
+                                    class="badge badge-uq">UQ</span><span class="field-name">email</span></div>
+                            <div class="field-right"><span class="field-type">VARCHAR(255)</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="badge badge-nn">NN</span><span
+                                    class="field-name">password_hash</span></div>
+                            <div class="field-right"><span class="field-type">TEXT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">first_name</span></div>
+                            <div class="field-right"><span class="field-type">VARCHAR(100)</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">last_name</span></div>
+                            <div class="field-right"><span class="field-type">VARCHAR(100)</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">created_at</span></div>
+                            <div class="field-right"><span class="field-type">TIMESTAMPTZ</span><span
+                                    class="field-meta">DEFAULT now()</span></div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- CỘT 2: LIBRARIES, QUIZZES, CHAT_SESSIONS -->
+            <div class="column">
+                <!-- 2. libraries -->
+                <div class="table-box" id="table-libraries">
+                    <div class="table-header"><span>2. libraries</span><span>Workspace Scope</span></div>
+                    <ul class="field-list">
+                        <li class="field-item" id="libraries-id">
+                            <div class="field-left"><span class="badge badge-pk">PK</span><span
+                                    class="field-name">id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">DEFAULT gen_v4()</span></div>
+                            <div class="pin pin-out"></div>
+                        </li>
+                        <li class="field-item" id="libraries-user_id">
+                            <div class="pin pin-in"></div>
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="badge badge-nn">NN</span><span class="field-name">user_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">CASCADE</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="badge badge-nn">NN</span><span
+                                    class="field-name">name</span></div>
+                            <div class="field-right"><span class="field-type">VARCHAR(255)</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">description</span></div>
+                            <div class="field-right"><span class="field-type">TEXT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">icon_or_color</span></div>
+                            <div class="field-right"><span class="field-type">VARCHAR(50)</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">total_documents</span></div>
+                            <div class="field-right"><span class="field-type">INT</span><span class="field-meta">DEFAULT
+                                    0</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">created_at</span></div>
+                            <div class="field-right"><span class="field-type">TIMESTAMPTZ</span><span
+                                    class="field-meta">DEFAULT now()</span></div>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- 6. quizzes -->
+                <div class="table-box" id="table-quizzes">
+                    <div class="table-header"><span>6. quizzes</span><span>Assessment Header</span></div>
+                    <ul class="field-list">
+                        <li class="field-item" id="quizzes-id">
+                            <div class="field-left"><span class="badge badge-pk">PK</span><span
+                                    class="field-name">id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">DEFAULT gen_v4()</span></div>
+                            <div class="pin pin-out"></div>
+                        </li>
+                        <li class="field-item" id="quizzes-library_id">
+                            <div class="pin pin-in"></div>
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="badge badge-nn">NN</span><span class="field-name">library_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">CASCADE</span></div>
+                        </li>
+                        <li class="field-item" id="quizzes-user_id">
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="badge badge-nn">NN</span><span class="field-name">user_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">CASCADE</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">title</span></div>
+                            <div class="field-right"><span class="field-type">VARCHAR(255)</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">description</span></div>
+                            <div class="field-right"><span class="field-type">TEXT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">total_questions</span></div>
+                            <div class="field-right"><span class="field-type">INT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">is_edited_by_user</span></div>
+                            <div class="field-right"><span class="field-type">BOOLEAN</span><span
+                                    class="field-meta">DEFAULT false</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">created_at</span></div>
+                            <div class="field-right"><span class="field-type">TIMESTAMPTZ</span><span
+                                    class="field-meta">DEFAULT now()</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">updated_at</span></div>
+                            <div class="field-right"><span class="field-type">TIMESTAMPTZ</span><span
+                                    class="field-meta">DEFAULT now()</span></div>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- 8. chat_sessions -->
+                <div class="table-box" id="table-chat_sessions">
+                    <div class="table-header"><span>8. chat_sessions</span><span>Conversation Session</span></div>
+                    <ul class="field-list">
+                        <li class="field-item" id="chat_sessions-id">
+                            <div class="field-left"><span class="badge badge-pk">PK</span><span
+                                    class="field-name">id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">DEFAULT gen_v4()</span></div>
+                            <div class="pin pin-out"></div>
+                        </li>
+                        <li class="field-item" id="chat_sessions-library_id">
+                            <div class="pin pin-in"></div>
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="badge badge-nn">NN</span><span class="field-name">library_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">CASCADE</span></div>
+                        </li>
+                        <li class="field-item" id="chat_sessions-user_id">
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="badge badge-nn">NN</span><span class="field-name">user_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">CASCADE</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">title</span></div>
+                            <div class="field-right"><span class="field-type">VARCHAR(255)</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">created_at</span></div>
+                            <div class="field-right"><span class="field-type">TIMESTAMPTZ</span><span
+                                    class="field-meta">DEFAULT now()</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">updated_at</span></div>
+                            <div class="field-right"><span class="field-type">TIMESTAMPTZ</span><span
+                                    class="field-meta">DEFAULT now()</span></div>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- CỘT 3: DOCUMENTS, JOBS, CHUNKS, QUESTIONS, MESSAGES -->
+            <div class="column">
+                <!-- 3. documents -->
+                <div class="table-box" id="table-documents">
+                    <div class="table-header"><span>3. documents</span><span>Stored Files</span></div>
+                    <ul class="field-list">
+                        <li class="field-item" id="documents-id">
+                            <div class="field-left"><span class="badge badge-pk">PK</span><span
+                                    class="field-name">id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">DEFAULT gen_v4()</span></div>
+                            <div class="pin pin-out"></div>
+                        </li>
+                        <li class="field-item" id="documents-library_id">
+                            <div class="pin pin-in"></div>
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="badge badge-nn">NN</span><span class="field-name">library_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">CASCADE</span></div>
+                        </li>
+                        <li class="field-item" id="documents-user_id">
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="badge badge-nn">NN</span><span class="field-name">user_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">CASCADE</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="badge badge-nn">NN</span><span
+                                    class="field-name">file_name</span></div>
+                            <div class="field-right"><span class="field-type">VARCHAR(500)</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="badge badge-nn">NN</span><span
+                                    class="field-name">file_path_minio</span></div>
+                            <div class="field-right"><span class="field-type">TEXT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">total_pages</span></div>
+                            <div class="field-right"><span class="field-type">INT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">status</span></div>
+                            <div class="field-right"><span class="field-type">VARCHAR(30)</span><span
+                                    class="field-meta">DEF 'pending'</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">created_at</span></div>
+                            <div class="field-right"><span class="field-type">TIMESTAMPTZ</span><span
+                                    class="field-meta">DEFAULT now()</span></div>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- 4. ingestion_jobs -->
+                <div class="table-box" id="table-ingestion_jobs">
+                    <div class="table-header"><span>4. ingestion_jobs</span><span>ETL Progress</span></div>
+                    <ul class="field-list">
+                        <li class="field-item" id="ingestion_jobs-id">
+                            <div class="field-left"><span class="badge badge-pk">PK</span><span
+                                    class="field-name">id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">DEFAULT gen_v4()</span></div>
+                        </li>
+                        <li class="field-item" id="ingestion_jobs-document_id">
+                            <div class="pin pin-in"></div>
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="badge badge-nn">NN</span><span class="field-name">document_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">CASCADE</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">total_chunks</span></div>
+                            <div class="field-right"><span class="field-type">INT</span><span class="field-meta">DEFAULT
+                                    0</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">processed_chunks</span></div>
+                            <div class="field-right"><span class="field-type">INT</span><span class="field-meta">DEFAULT
+                                    0</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">progress_percent</span></div>
+                            <div class="field-right"><span class="field-type">NUMERIC(5,2)</span><span
+                                    class="field-meta">DEFAULT 0</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">error_message</span></div>
+                            <div class="field-right"><span class="field-type">TEXT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">started_at</span></div>
+                            <div class="field-right"><span class="field-type">TIMESTAMPTZ</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">finished_at</span></div>
+                            <div class="field-right"><span class="field-type">TIMESTAMPTZ</span></div>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- 5. document_chunks -->
+                <div class="table-box" id="table-document_chunks">
+                    <div class="table-header"><span>5. document_chunks</span><span>pgvector Vectors</span></div>
+                    <ul class="field-list">
+                        <li class="field-item" id="document_chunks-id">
+                            <div class="field-left"><span class="badge badge-pk">PK</span><span
+                                    class="field-name">id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">DEFAULT gen_v4()</span></div>
+                        </li>
+                        <li class="field-item" id="document_chunks-library_id">
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="badge badge-nn">NN</span><span class="field-name">library_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">CASCADE</span></div>
+                        </li>
+                        <li class="field-item" id="document_chunks-document_id">
+                            <div class="pin pin-in"></div>
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="badge badge-nn">NN</span><span class="field-name">document_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">CASCADE</span></div>
+                        </li>
+                        <li class="field-item" id="document_chunks-user_id">
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="badge badge-nn">NN</span><span class="field-name">user_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">CASCADE</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">page_number</span></div>
+                            <div class="field-right"><span class="field-type">INT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">chunk_index</span></div>
+                            <div class="field-right"><span class="field-type">INT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="badge badge-nn">NN</span><span
+                                    class="field-name">content</span></div>
+                            <div class="field-right"><span class="field-type">TEXT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">embedding</span></div>
+                            <div class="field-right"><span class="field-type">VECTOR(768)</span><span
+                                    class="field-meta">IVFFlat</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">metadata</span></div>
+                            <div class="field-right"><span class="field-type">JSONB</span></div>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- 7. quiz_questions -->
+                <div class="table-box" id="table-quiz_questions">
+                    <div class="table-header"><span>7. quiz_questions</span><span>Questions & Answers</span></div>
+                    <ul class="field-list">
+                        <li class="field-item" id="quiz_questions-id">
+                            <div class="field-left"><span class="badge badge-pk">PK</span><span
+                                    class="field-name">id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">DEFAULT gen_v4()</span></div>
+                        </li>
+                        <li class="field-item" id="quiz_questions-quiz_id">
+                            <div class="pin pin-in"></div>
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="badge badge-nn">NN</span><span class="field-name">quiz_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">CASCADE</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="badge badge-nn">NN</span><span
+                                    class="field-name">order_index</span></div>
+                            <div class="field-right"><span class="field-type">INT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="badge badge-nn">NN</span><span
+                                    class="field-name">question_text</span></div>
+                            <div class="field-right"><span class="field-type">TEXT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">option_a / b / c / d</span></div>
+                            <div class="field-right"><span class="field-type">TEXT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">correct_answer</span></div>
+                            <div class="field-right"><span class="field-type">CHAR(1)</span><span
+                                    class="field-meta">CHECK A-D</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">explanation</span></div>
+                            <div class="field-right"><span class="field-type">TEXT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">source_page</span></div>
+                            <div class="field-right"><span class="field-type">INT</span></div>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- 9. chat_messages -->
+                <div class="table-box" id="table-chat_messages">
+                    <div class="table-header"><span>9. chat_messages</span><span>Messages & Citations</span></div>
+                    <ul class="field-list">
+                        <li class="field-item" id="chat_messages-id">
+                            <div class="field-left"><span class="badge badge-pk">PK</span><span
+                                    class="field-name">id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">DEFAULT gen_v4()</span></div>
+                        </li>
+                        <li class="field-item" id="chat_messages-session_id">
+                            <div class="pin pin-in"></div>
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="badge badge-nn">NN</span><span class="field-name">session_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span><span
+                                    class="field-meta">CASCADE</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="badge badge-nn">NN</span><span
+                                    class="field-name">role</span></div>
+                            <div class="field-right"><span class="field-type">VARCHAR(10)</span><span
+                                    class="field-meta">CHECK user/asst</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="badge badge-nn">NN</span><span
+                                    class="field-name">content</span></div>
+                            <div class="field-right"><span class="field-type">TEXT</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">citations</span></div>
+                            <div class="field-right"><span class="field-type">JSONB</span></div>
+                        </li>
+                        <li class="field-item" id="chat_messages-quiz_id">
+                            <div class="pin pin-in"></div>
+                            <div class="field-left"><span class="badge badge-fk">FK</span><span
+                                    class="field-name">quiz_id</span></div>
+                            <div class="field-right"><span class="field-type">UUID</span></div>
+                        </li>
+                        <li class="field-item">
+                            <div class="field-left"><span class="field-name">created_at</span></div>
+                            <div class="field-right"><span class="field-type">TIMESTAMPTZ</span><span
+                                    class="field-meta">DEFAULT now()</span></div>
+                        </li>
+                    </ul>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        const directKeyLinks = [
+            // users.id (1) -> libraries.user_id (N)
+            { from: 'users-id', to: 'libraries-user_id' },
+
+            // libraries.id (1) -> documents.library_id (N)
+            { from: 'libraries-id', to: 'documents-library_id' },
+            // libraries.id (1) -> quizzes.library_id (N)
+            { from: 'libraries-id', to: 'quizzes-library_id' },
+            // libraries.id (1) -> chat_sessions.library_id (N)
+            { from: 'libraries-id', to: 'chat_sessions-library_id' },
+
+            // documents.id (1) -> ingestion_jobs.document_id (N)
+            { from: 'documents-id', to: 'ingestion_jobs-document_id' },
+            // documents.id (1) -> document_chunks.document_id (N)
+            { from: 'documents-id', to: 'document_chunks-document_id' },
+
+            // quizzes.id (1) -> quiz_questions.quiz_id (N)
+            { from: 'quizzes-id', to: 'quiz_questions-quiz_id' },
+            // quizzes.id (1) -> chat_messages.quiz_id (N)
+            { from: 'quizzes-id', to: 'chat_messages-quiz_id' },
+
+            // chat_sessions.id (1) -> chat_messages.session_id (N)
+            { from: 'chat_sessions-id', to: 'chat_messages-session_id' }
+        ];
+
+        function drawCables() {
+            const svg = document.getElementById('relation-svg');
+            const containerRect = document.querySelector('.canvas-container').getBoundingClientRect();
+            svg.innerHTML = '';
+
+            directKeyLinks.forEach(link => {
+                const fromEl = document.getElementById(link.from);
+                const toEl = document.getElementById(link.to);
+                if (!fromEl || !toEl) return;
+
+                const fromPin = fromEl.querySelector('.pin-out') || fromEl;
+                const toPin = toEl.querySelector('.pin-in') || toEl;
+
+                const r1 = fromPin.getBoundingClientRect();
+                const r2 = toPin.getBoundingClientRect();
+
+                const x1 = r1.left + r1.width / 2 - containerRect.left;
+                const y1 = r1.top + r1.height / 2 - containerRect.top;
+                const x2 = r2.left + r2.width / 2 - containerRect.left;
+                const y2 = r2.top + r2.height / 2 - containerRect.top;
+
+                const dx = Math.max(Math.abs(x2 - x1) * 0.45, 40);
+                const d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+
+                // Line Path
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('d', d);
+                path.setAttribute('class', 'relation-path');
+                path.dataset.from = link.from;
+                path.dataset.to = link.to;
+
+                // Label 1 at parent pin
+                const t1 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                t1.setAttribute('x', x1 + 8);
+                t1.setAttribute('y', y1 - 4);
+                t1.setAttribute('class', 'relation-tag');
+                t1.textContent = '1';
+
+                // Label N at child pin
+                const t2 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                t2.setAttribute('x', x2 - 14);
+                t2.setAttribute('y', y2 - 4);
+                t2.setAttribute('class', 'relation-tag');
+                t2.textContent = 'N';
+
+                svg.appendChild(path);
+                svg.appendChild(t1);
+                svg.appendChild(t2);
+            });
+        }
+
+        window.addEventListener('load', drawCables);
+        window.addEventListener('resize', drawCables);
+
+        // Hover effect linking
+        document.querySelectorAll('.field-item, .table-box').forEach(item => {
+            item.addEventListener('mouseenter', () => {
+                const id = item.id;
+                document.querySelectorAll('.relation-path').forEach(p => {
+                    if (p.dataset.from === id || p.dataset.to === id ||
+                        item.contains(document.getElementById(p.dataset.from)) ||
+                        item.contains(document.getElementById(p.dataset.to))) {
+                        p.classList.add('active');
+                    }
+                });
+            });
+            item.addEventListener('mouseleave', () => {
+                document.querySelectorAll('.relation-path').forEach(p => p.classList.remove('active'));
+            });
+        });
+    </script>
+</body>
+
+</html>
