@@ -16,7 +16,7 @@ async def test_assistant_graph_invoke():
     
     # 2. Chuẩn bị state đầu vào
     initial_state: AgentState = {
-        "messages": [HumanMessage(content="Xin chào, rag là gì?")],
+        "messages": [HumanMessage(content="Xin chào, Bạn có thể giúp gì cho tôi?")],
         "user_id": "test_user",
         "library_id": "test_lib",
         "session_id": "test_session",
