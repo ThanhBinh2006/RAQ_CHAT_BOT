@@ -24,16 +24,10 @@ async def integration_db() -> AsyncGenerator[AsyncSession, None]:
         await session.rollback()
 
 @pytest.fixture
-async def integration_client(integration_db) -> AsyncGenerator[AsyncClient, None]:
-    async def override_get_db():
-        yield integration_db
-        
-    app.dependency_overrides[get_db] = override_get_db
-    
+async def integration_client() -> AsyncGenerator[AsyncClient, None]:
+    """Client for integration tests using the real database and normal dependencies."""
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as c:
         yield c
-        
-    app.dependency_overrides.clear()
 
 # --- Mocks for Unit Tests ---
 @pytest.fixture
@@ -78,10 +72,10 @@ def test_user() -> User:
 @pytest.fixture
 async def mock_client(mock_db, test_user) -> AsyncGenerator[AsyncClient, None]:
     """Client for unit testing API routes without hitting a real DB."""
-    async def override_get_db():
-        yield mock_db
+    def override_get_db():
+        return mock_db
         
-    async def override_get_current_user():
+    def override_get_current_user():
         return test_user
 
     app.dependency_overrides[get_db] = override_get_db

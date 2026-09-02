@@ -9,7 +9,8 @@ async def test_libraries_integration(integration_client: AsyncClient):
     Note: get_current_user is NOT mocked here, so we must register/login first.
     """
     # 1. Register a test user
-    email = "integration@example.com"
+    import uuid
+    email = f"integration_{uuid.uuid4().hex[:8]}@example.com"
     pwd = "password123"
     reg_res = await integration_client.post("/api/auth/register", json={
         "email": email,
