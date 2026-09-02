@@ -49,11 +49,16 @@ def mock_db() -> AsyncMock:
     
     session.execute.return_value = mock_result
 
-    # Simulate SQLAlchemy assigning a default ID when an object is added
+    # Simulate SQLAlchemy assigning a default ID and timestamps when an object is added
     def mock_add(obj):
         import uuid
+        from datetime import datetime, timezone
         if hasattr(obj, "id") and obj.id is None:
             obj.id = uuid.uuid4()
+        if hasattr(obj, "created_at") and getattr(obj, "created_at", None) is None:
+            obj.created_at = datetime.now(timezone.utc)
+        if hasattr(obj, "total_documents") and getattr(obj, "total_documents", None) is None:
+            obj.total_documents = 0
     
     session.add.side_effect = mock_add
     
