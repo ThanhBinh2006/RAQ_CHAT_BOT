@@ -1,40 +1,31 @@
-"use client";
 
-import { CopilotChat } from "@copilotkit/react-ui";
-import { useCoAgentStateRender } from "@copilotkit/react-core";
+import { CopilotChat, useAgent } from "@copilotkit/react-core/v2"; // 💡 Import thêm useAgent ở đây
 import { useState } from "react";
 import { QuizPreviewCard } from "../quiz/QuizPreviewCard";
 import { QuizEditorCard } from "../quiz/QuizEditorCard";
 import { MessageSquare } from "lucide-react";
-import "@copilotkit/react-ui/styles.css";
+import "@copilotkit/react-core/v2/styles.css";
 
 interface Props {
   libraryId: string;
   sessionId: string | null;
 }
 
+// 💡 Khai báo kiểu dữ liệu cho State của Agent để TypeScript kiểm soát chặt chẽ
+interface AgentState {
+  quiz_draft?: any[];
+}
+
 export function ChatWindow({ libraryId, sessionId }: Props) {
   const [editing, setEditing] = useState(false);
 
-  // Render quiz draft when it appears in agent state
-  useCoAgentStateRender({
-    name: "assistant",
-    render: ({ state }) => {
-      if (!state.quiz_draft?.length) return null;
-      return editing ? (
-        <QuizEditorCard
-          libraryId={libraryId}
-          initialQuestions={state.quiz_draft}
-          suggestedTitle={`Đề ôn tập ${new Date().toLocaleDateString("vi-VN")}`}
-        />
-      ) : (
-        <QuizPreviewCard
-          questions={state.quiz_draft}
-          onEdit={() => setEditing(true)}
-        />
-      );
-    },
+  // 💡 V2: Thay thế hoàn toàn useCoAgentStateRender bằng useAgent
+  const { agent } = useAgent({
+    agentId: "assistant",
   });
+
+  // Ép kiểu hoặc fallback object trống để tránh lỗi undefined khi chưa đồng bộ xong
+  const state = (agent?.state as AgentState) || {};
 
   if (!sessionId) {
     return (
@@ -53,13 +44,34 @@ export function ChatWindow({ libraryId, sessionId }: Props) {
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col overflow-hidden relative">
+      {/* 
+        💡 V2 Generative UI logic: Nếu trong bộ nhớ Agent xuất hiện `quiz_draft`, 
+        nó sẽ ngay lập tức được vẽ đè/hiển thị song song lên màn hình 
+      */}
+      {state.quiz_draft && state.quiz_draft.length > 0 && (
+        <div className="absolute inset-0 z-10 bg-[var(--bg-primary)] p-4 overflow-y-auto flex flex-col">
+          {editing ? (
+            <QuizEditorCard
+              libraryId={libraryId}
+              initialQuestions={state.quiz_draft}
+              suggestedTitle={`Đề ôn tập ${new Date().toLocaleDateString("vi-VN")}`}
+            />
+          ) : (
+            <QuizPreviewCard
+              questions={state.quiz_draft}
+              onEdit={() => setEditing(true)}
+            />
+          )}
+        </div>
+      )}
+
+      {/* Giao diện Chat chính */}
       <CopilotChat
-        agent="assistant"
+        agentId="assistant"
         labels={{
-          title: "Trợ lý Thư viện",
-          initial: "Xin chào! Tôi có thể giúp bạn tra cứu tài liệu hoặc tạo đề trắc nghiệm. Hãy hỏi tôi bất cứ điều gì!",
-          placeholder: "Hỏi về tài liệu hoặc yêu cầu tạo đề...",
+          welcomeMessageText: "Xin chào! Tôi có thể giúp bạn tra cứu tài liệu hoặc tạo đề trắc nghiệm. Hãy hỏi tôi bất cứ điều gì!",
+          chatInputPlaceholder: "Hỏi về tài liệu hoặc yêu cầu tạo đề...",
         }}
         className="flex-1"
       />

@@ -46,7 +46,9 @@ app = FastAPI(
 # Đăng ký CopilotKit ở ngay ngoài luồng chính (không để trong lifespan)
 # để đảm bảo FastAPI nhận diện được route ngay từ đầu, tránh lỗi 404.
 from app.api.routes.copilotkit import register_copilotkit
+print("Registering_agent_RAQ")
 register_copilotkit(app, checkpointer=None)
+print("Complete register!")
 
 # ── CORS Middleware ──────────────────────────────────────────
 app.add_middleware(
