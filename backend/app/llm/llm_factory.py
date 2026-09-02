@@ -58,6 +58,13 @@ class MockChatModel(BaseChatModel):
     async def _agenerate(self, messages, stop=None, run_manager=None, **kwargs):
         return self._generate(messages, stop, run_manager, **kwargs)
 
+    def bind_tools(self, tools, **kwargs):
+        """
+        Mock implementation of bind_tools. 
+        It just returns the mock model itself since we don't actually execute tools in mock mode.
+        """
+        return self
+
 
 def _detect_provider(model_name: str) -> str:
     """Detect the provider from a model name."""
