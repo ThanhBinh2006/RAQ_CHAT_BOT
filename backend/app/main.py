@@ -26,10 +26,8 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"   ⚠️ Checkpointer init failed (non-critical): {e}")
 
-    # Register CopilotKit with the checkpointer
-    from app.api.routes.copilotkit import register_copilotkit
-    register_copilotkit(app, checkpointer)
-    print("   ✅ CopilotKit agent registered at /api/copilotkit")
+    # We no longer register CopilotKit here due to 404 routing bugs with ASGI.
+    # It is registered synchronously at the module level.
 
     yield
 
@@ -44,6 +42,11 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan,
 )
+
+# Đăng ký CopilotKit ở ngay ngoài luồng chính (không để trong lifespan)
+# để đảm bảo FastAPI nhận diện được route ngay từ đầu, tránh lỗi 404.
+from app.api.routes.copilotkit import register_copilotkit
+register_copilotkit(app, checkpointer=None)
 
 # ── CORS Middleware ──────────────────────────────────────────
 app.add_middleware(

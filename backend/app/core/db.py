@@ -40,6 +40,16 @@ async def get_checkpointer():
     # psycopg: postgresql://...
     pg_url = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
 
-    checkpointer = AsyncPostgresSaver.from_conn_string(pg_url)
-    await checkpointer.setup()
-    return checkpointer
+    # AsyncPostgresSaver is an async context manager
+    async with AsyncPostgresSaver.from_conn_string(pg_url) as checkpointer:
+        await checkpointer.setup()
+    
+    # We must return an instance using a connection pool for global use,
+    # because the context manager above closes the connection when it exits.
+    from psycopg_pool import AsyncConnectionPool
+    pool = AsyncConnectionPool(
+        conninfo=pg_url,
+        max_size=20,
+        kwargs={"autocommit": True, "prepare_threshold": 0},
+    )
+    return AsyncPostgresSaver(pool)
