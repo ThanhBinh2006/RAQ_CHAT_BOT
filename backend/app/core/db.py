@@ -21,12 +21,6 @@ AsyncSessionLocal = async_sessionmaker(
 )
 
 
-async def get_async_session() -> AsyncSession:
-    """Dependency injection for FastAPI routes."""
-    async with AsyncSessionLocal() as session:
-        yield session
-
-
 # ── LangGraph Postgres Checkpointer ─────────────────────────
 async def get_checkpointer():
     """
