@@ -27,14 +27,14 @@ async def test_libraries_integration(integration_client: AsyncClient):
     headers = {"Authorization": f"Bearer {token}"}
     
     # 3. Create a library
-    lib_res = await integration_client.post("/api/libraries/", json={
+    lib_res = await integration_client.post("/api/libraries", json={
         "name": "Integration Test Library",
         "description": "Integration testing"
     }, headers=headers)
-    assert lib_res.status_code == 200
+    assert lib_res.status_code == 201
     lib_id = lib_res.json()["id"]
     
     # 4. List libraries
-    list_res = await integration_client.get("/api/libraries/", headers=headers)
+    list_res = await integration_client.get("/api/libraries", headers=headers)
     assert list_res.status_code == 200
     assert any(lib["id"] == lib_id for lib in list_res.json())

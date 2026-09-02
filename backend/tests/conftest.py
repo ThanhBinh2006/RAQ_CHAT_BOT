@@ -48,6 +48,15 @@ def mock_db() -> AsyncMock:
     mock_result.scalars().all.return_value = []
     
     session.execute.return_value = mock_result
+
+    # Simulate SQLAlchemy assigning a default ID when an object is added
+    def mock_add(obj):
+        import uuid
+        if hasattr(obj, "id") and obj.id is None:
+            obj.id = uuid.uuid4()
+    
+    session.add.side_effect = mock_add
+    
     return session
 
 @pytest.fixture

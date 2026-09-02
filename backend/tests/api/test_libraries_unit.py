@@ -10,7 +10,7 @@ async def test_get_libraries_mock(mock_client: AsyncClient, mock_db):
     # Simulate DB returning empty list of libraries for this user
     mock_db.execute.return_value.scalars().all.return_value = []
     
-    response = await mock_client.get("/api/libraries/")
+    response = await mock_client.get("/api/libraries")
     
     assert response.status_code == 200
     assert response.json() == []
@@ -21,11 +21,11 @@ async def test_create_library_mock(mock_client: AsyncClient, mock_db):
     Test POST /api/libraries using mocked database.
     """
     response = await mock_client.post(
-        "/api/libraries/",
+        "/api/libraries",
         json={"name": "Mocked Library", "description": "This is a mock"}
     )
     
-    assert response.status_code == 200
+    assert response.status_code == 201
     data = response.json()
     assert data["name"] == "Mocked Library"
     assert data["description"] == "This is a mock"
