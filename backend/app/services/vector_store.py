@@ -32,9 +32,10 @@ async def _get_query_embedding(query: str) -> List[float]:
 
     genai.configure(api_key=api_key)
     result = genai.embed_content(
-        model="models/text-embedding-004",
+        model="models/gemini-embedding-001",
         content=query,
         task_type="RETRIEVAL_QUERY",
+        output_dimensionality=768
     )
     return result["embedding"]
 
@@ -58,9 +59,10 @@ async def similarity_search(
         import google.generativeai as genai
         genai.configure(api_key=api_key)
         result = genai.embed_content(
-            model="models/text-embedding-004",
+            model="gemini-embedding-001",
             content=query,
             task_type="RETRIEVAL_QUERY",
+            output_dimensionality=768
         )
         query_embedding = result["embedding"]
     else:
