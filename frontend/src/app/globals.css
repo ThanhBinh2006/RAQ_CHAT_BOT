@@ -207,8 +207,27 @@ body {
   animation: slideIn 0.3s ease-out;
 }
 
-/* ── CopilotKit Overrides ─────────────────────────────────── */
-.copilotKitChat {
-  background: var(--bg-secondary) !important;
-  border: none !important;
+/* ── CopilotKit Overrides (Light Theme) ────────────────────── */
+[data-copilotkit],
+.copilotKitChat,
+.copilotKitWindow {
+  --copilot-kit-background-color: #ffffff; /* Màu nền chính trắng */
+  --copilot-kit-secondary-color: #f3f4f6; /* Màu nền phụ (thanh chat, ô input...) */
+  --copilot-kit-secondary-contrast-color: #1f2937; /* Màu chữ chính (tối để nổi trên nền trắng) */
+  --copilot-kit-contrast-color: #111827;
+  --copilot-kit-separator-color: #e5e7eb; /* Màu đường kẻ viền */
+  --copilot-kit-scrollbar-color: #d1d5db;
+  --copilot-kit-muted-color: #9ca3af; /* Màu text phụ/chữ mờ */
+  --copilot-kit-primary-color: var(--accent); /* Nút gửi vẫn dùng màu xanh tím cho đẹp */
+  --copilot-kit-response-button-background-color: #f3f4f6;
+  --copilot-kit-response-button-color: #1f2937;
+}
+
+/* Đảm bảo khung chat có màu nền trắng hoàn toàn bất kể app đang là Dark Mode */
+.copilotKitChat, 
+.copilotKitWindow {
+  background-color: var(--copilot-kit-background-color) !important;
+  color: var(--copilot-kit-secondary-contrast-color) !important;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }

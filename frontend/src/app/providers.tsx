@@ -9,7 +9,7 @@ const COPILOT_RUNTIME_URL = "/api/copilotkit";
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
-      <CopilotKit runtimeUrl={COPILOT_RUNTIME_URL}>
+      <CopilotKit runtimeUrl={COPILOT_RUNTIME_URL} useSingleEndpoint={true}>
         {children}
       </CopilotKit>
     </AuthProvider>

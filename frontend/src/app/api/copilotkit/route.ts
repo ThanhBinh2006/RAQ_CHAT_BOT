@@ -16,6 +16,7 @@ const runtime = new CopilotRuntime({
 // 3. Khởi tạo Handler kết nối App Router Next.js 
 const handler = createCopilotRuntimeHandler({
   runtime,
+  mode: "single-route",
   basePath: "/api/copilotkit",
 });
 
