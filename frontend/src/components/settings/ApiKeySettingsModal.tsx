@@ -109,6 +109,25 @@ export function ApiKeySettingsModal({ onClose }: Props) {
                   )}
                 </div>
               ))}
+
+              <div>
+                <label className="text-xs font-medium text-[var(--text-secondary)] mb-1 block">
+                  NVIDIA NIM — Nemotron Embedding (Vector 2048)
+                  {keys.nvidia_embedding && (
+                    <span className="ml-2 text-[var(--success)]">✓ Đã nhập</span>
+                  )}
+                </label>
+                <input
+                  className="input-field text-sm"
+                  type="password"
+                  placeholder="Nhập NVIDIA Embedding Key (nvidia/nemotron-3-embed-1b)..."
+                  value={keys.nvidia_embedding || ""}
+                  onChange={(e) => setKeys({ ...keys, nvidia_embedding: e.target.value || undefined })}
+                />
+                <p className="text-xs text-[var(--text-muted)] mt-1">
+                  Model: nvidia/nemotron-3-embed-1b (Dùng để trích xuất & tìm kiếm vector)
+                </p>
+              </div>
             </div>
           </div>
 
