@@ -1,6 +1,6 @@
 "use client";
 
-import { CopilotKit } from "@copilotkit/react-core";
+import { CopilotKit } from "@copilotkit/react-core/v2";
 import { AuthProvider } from "@/lib/auth-context";
 import { ReactNode } from "react";
 

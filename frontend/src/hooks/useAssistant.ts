@@ -1,10 +1,8 @@
 "use client";
 
-import { useCoAgent } from "@copilotkit/react-core";
+// Import useAgent thay vì useCoAgent
+import { useAgent } from "@copilotkit/react-core/v2";
 
-/**
- * AgentState matching the backend AgentState TypedDict.
- */
 interface AgentState {
   messages: unknown[];
   user_id: string;
@@ -30,9 +28,11 @@ interface AgentState {
   }> | null;
 }
 
-/**
- * Hook to access the assistant agent state via CopilotKit.
- */
 export function useAssistant() {
-  return useCoAgent<AgentState>({ name: "assistant" });
+  // Cú pháp chính xác của v2 useAgent sử dụng 'agentId'
+  const { agent } = useAgent({
+    agentId: "assistant"
+  });
+
+  return agent;
 }

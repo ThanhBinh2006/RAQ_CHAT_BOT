@@ -1,10 +1,11 @@
 
-import { CopilotChat, useAgent } from "@copilotkit/react-core/v2"; // 💡 Import thêm useAgent ở đây
+import { CopilotChat } from "@copilotkit/react-core/v2";
 import { useState } from "react";
 import { QuizPreviewCard } from "../quiz/QuizPreviewCard";
 import { QuizEditorCard } from "../quiz/QuizEditorCard";
 import { MessageSquare } from "lucide-react";
 import "@copilotkit/react-core/v2/styles.css";
+import { useAssistant } from "../../hooks/useAssistant";
 
 interface Props {
   libraryId: string;
@@ -19,10 +20,8 @@ interface AgentState {
 export function ChatWindow({ libraryId, sessionId }: Props) {
   const [editing, setEditing] = useState(false);
 
-  // 💡 V2: Thay thế hoàn toàn useCoAgentStateRender bằng useAgent
-  const { agent } = useAgent({
-    agentId: "assistant",
-  });
+  // 💡 Sử dụng custom hook của chúng ta thay vì gọi trực tiếp
+  const agent = useAssistant();
 
   // Ép kiểu hoặc fallback object trống để tránh lỗi undefined khi chưa đồng bộ xong
   const state = (agent?.state as AgentState) || {};
