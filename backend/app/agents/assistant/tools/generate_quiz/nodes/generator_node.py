@@ -27,8 +27,8 @@ async def generator_node(state: QuizState) -> dict:
     focus = state.get("focus_topic") or "toàn bộ nội dung tài liệu"
     chunks = await similarity_search(
         query=f"Kiến thức trọng tâm: {focus}",
-        library_id=state["library_id"],
-        user_id=state["user_id"],
+        library_id=state.get("library_id"),
+        user_id=state.get("user_id"),
         top_k=10,
     )
     context_text = "\n\n".join(
@@ -99,9 +99,10 @@ Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác
         }
 
     # Real mode
+    generator_model = (state.get("model_config") or {}).get("generator", "gemini-2.5-flash")
     llm = get_llm(
-        state["model_config"]["generator"],
-        state.get("api_keys"),
+        generator_model,
+        state.get("api_keys") or {},
         temperature=0.7,
     )
 

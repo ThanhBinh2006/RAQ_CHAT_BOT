@@ -22,10 +22,13 @@ async def search_documents(
     api_keys = state.get("api_keys", {})
     gemini_key = api_keys.get("gemini")
 
+    library_id = state.get("library_id")
+    user_id = state.get("user_id")
+
     chunks = await similarity_search(
         query=query,
-        library_id=state["library_id"],
-        user_id=state["user_id"],
+        library_id=library_id,
+        user_id=user_id,
         top_k=6,
         api_key=gemini_key,
     )

@@ -1,10 +1,43 @@
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { QuizPreviewCard } from "../quiz/QuizPreviewCard";
 import { QuizEditorCard } from "../quiz/QuizEditorCard";
 import { MessageSquare, Send, Bot, User } from "lucide-react";
 import { useChat } from "@ai-sdk/react";
+import { TextStreamChatTransport } from "ai";
 import { AgentState } from "../../hooks/useAssistant";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+function getHeaders(): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem("raq_token");
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+
+    const keys = localStorage.getItem("raq_api_keys");
+    const models = localStorage.getItem("raq_model_config");
+    if (keys) {
+      try {
+        const parsed = JSON.parse(keys);
+        if (parsed.gemini) headers["X-Gemini-Key"] = parsed.gemini;
+        if (parsed.groq) headers["X-Groq-Key"] = parsed.groq;
+        if (parsed.openai) headers["X-OpenAI-Key"] = parsed.openai;
+        if (parsed.anthropic) headers["X-Anthropic-Key"] = parsed.anthropic;
+      } catch (e) {}
+    }
+    if (models) {
+      try {
+        const parsed = JSON.parse(models);
+        if (parsed.supervisor) headers["X-Supervisor-Model"] = parsed.supervisor;
+        if (parsed.generator) headers["X-Generator-Model"] = parsed.generator;
+        if (parsed.evaluator) headers["X-Evaluator-Model"] = parsed.evaluator;
+        if (parsed.synthesizer) headers["X-Synthesizer-Model"] = parsed.synthesizer;
+      } catch (e) {}
+    }
+  }
+  return headers;
+}
 
 interface Props {
   libraryId: string;
@@ -12,19 +45,36 @@ interface Props {
 }
 
 export function ChatWindow({ libraryId, sessionId }: Props) {
+  const [input, setInput] = useState("");
   const [editing, setEditing] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Vercel AI SDK useChat
-  const { messages, input, setInput, handleSubmit, isLoading, data } = useChat({
-    api: "/api/chat",
-    // Pass a function to dynamically evaluate props on submission
-    body: () => ({
+  // Vercel AI SDK useChat pointing to backend API
+  const transport = useMemo(() => new TextStreamChatTransport({
+    api: `${API_BASE}/api/chat`,
+    body: {
       libraryId,
       sessionId,
-    }),
+    },
+    headers: () => getHeaders(),
+  }), [libraryId, sessionId]);
+
+  const { messages, status, sendMessage, stop, error } = useChat({
+    id: sessionId || undefined,
+    transport,
   });
 
+  const isLoading = status === 'submitted' || status === 'streaming';
+
+  const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!input.trim() || isLoading) return;
+    sendMessage({
+      text: input,
+      metadata: { libraryId, sessionId }
+    });
+    setInput("");
+  };
 
   // Tự động cuộn xuống tin nhắn mới nhất
   useEffect(() => {
@@ -32,7 +82,8 @@ export function ChatWindow({ libraryId, sessionId }: Props) {
   }, [messages]);
 
   // Trích xuất state từ luồng dữ liệu (nếu có Quiz)
-  const agentState: AgentState = (data as any)?.[data?.length - 1] || {};
+  const lastMessage = messages[messages.length - 1];
+  const agentState: AgentState = (lastMessage?.metadata as any)?.agentState || {};
 
   if (!sessionId) {
     return (
@@ -90,7 +141,9 @@ export function ChatWindow({ libraryId, sessionId }: Props) {
               ? 'bg-[var(--copilot-kit-secondary-color)] text-[var(--copilot-kit-secondary-contrast-color)] rounded-tr-sm'
               : 'bg-transparent text-[var(--copilot-kit-secondary-contrast-color)]'
               }`}>
-              <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
+              <div className="whitespace-pre-wrap leading-relaxed">
+                {m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') || ''}
+              </div>
             </div>
 
             {m.role === 'user' && (
@@ -118,7 +171,7 @@ export function ChatWindow({ libraryId, sessionId }: Props) {
           />
           <button
             type="submit"
-            disabled={isLoading || !input.trim()}
+            disabled={isLoading || !(input || '').trim()}
             className="w-10 h-10 rounded-full bg-[var(--copilot-kit-primary-color)] text-white flex items-center justify-center disabled:opacity-50 transition-colors hover:bg-opacity-90 ml-2 flex-shrink-0"
           >
             <Send size={18} />

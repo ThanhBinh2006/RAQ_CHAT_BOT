@@ -22,8 +22,8 @@ async def generate_quiz(
     n = min(num_questions, 100)
 
     result = await quiz_subgraph.ainvoke({
-        "library_id": state["library_id"],
-        "user_id": state["user_id"],
+        "library_id": state.get("library_id"),
+        "user_id": state.get("user_id"),
         "focus_topic": focus_topic,
         "num_questions": n,
         "batch_size": 18,
@@ -35,13 +35,13 @@ async def generate_quiz(
         "eval_feedback": None,
         "eval_details": None,
         "accepted_questions": [],
-        "model_config": state.get("model_config", {
+        "model_config": state.get("model_config") or {
             "supervisor": "gemini-2.5-flash",
             "generator": "gemini-2.5-flash",
             "evaluator": "gemini-2.5-flash",
             "synthesizer": "gemini-2.5-flash",
-        }),
-        "api_keys": state.get("api_keys", {}),
+        },
+        "api_keys": state.get("api_keys") or {},
     })
 
     accepted = result.get("accepted_questions", [])

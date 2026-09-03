@@ -89,9 +89,10 @@ Quy tắc: Nếu >= 80% câu hợp lệ → "approved", ngược lại → "reje
     import json
     import re
 
+    evaluator_model = (state.get("model_config") or {}).get("evaluator", "gemini-2.5-flash")
     llm = get_llm(
-        state["model_config"]["evaluator"],
-        state.get("api_keys"),
+        evaluator_model,
+        state.get("api_keys") or {},
         temperature=0.0,
     )
 

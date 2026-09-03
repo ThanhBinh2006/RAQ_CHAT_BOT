@@ -22,15 +22,15 @@ def agent_node(state: AgentState):
     2. Prepends system prompt
     3. Invokes LLM to decide: call tool or respond directly
     """
-    model_config = state.get("model_config", {})
+    model_config = state.get("model_config") or {}
     supervisor_model = model_config.get("supervisor", "gemini-2.5-flash")
 
-    llm = get_llm(supervisor_model, state.get("api_keys"))
+    llm = get_llm(supervisor_model, state.get("api_keys") or {})
     llm_with_tools = llm.bind_tools(TOOLS)
 
     messages = [SystemMessage(content=SYSTEM_PROMPT), *state["messages"]]
     response = llm_with_tools.invoke(messages)
-
+    print(response)
     return {"messages": [response]}
 
 
@@ -46,30 +46,41 @@ async def custom_tool_node(state: AgentState):
         tool_name = tool_call["name"]
         args = tool_call["args"]
 
-        if tool_name == "search_documents":
-            res = await search_documents.coroutine(
-                query=args["query"], 
-                state=state
-            )
-            update["messages"].append(ToolMessage(
-                content=res["context_text"], 
-                tool_call_id=tool_call["id"], 
-                name=tool_name
-            ))
-            update["citations"] = res["citations"]
+        try:
+            if tool_name == "search_documents":
+                query_val = args.get("query", "")
+                res = await search_documents.coroutine(
+                    query=query_val, 
+                    state=state
+                )
+                update["messages"].append(ToolMessage(
+                    content=res.get("context_text", "Không tìm thấy tài liệu phù hợp."), 
+                    tool_call_id=tool_call["id"], 
+                    name=tool_name
+                ))
+                if "citations" in res:
+                    update["citations"] = res["citations"]
 
-        elif tool_name == "generate_quiz":
-            res = await generate_quiz.coroutine(
-                num_questions=args["num_questions"], 
-                focus_topic=args.get("focus_topic"), 
-                state=state
-            )
+            elif tool_name == "generate_quiz":
+                res = await generate_quiz.coroutine(
+                    num_questions=args.get("num_questions", 5), 
+                    focus_topic=args.get("focus_topic"), 
+                    state=state
+                )
+                update["messages"].append(ToolMessage(
+                    content=res.get("message", "Đã sinh câu hỏi."), 
+                    tool_call_id=tool_call["id"], 
+                    name=tool_name
+                ))
+                if "quiz_draft" in res:
+                    update["quiz_draft"] = res["quiz_draft"]
+        except Exception as e:
+            print(f"Error executing tool {tool_name}: {e}")
             update["messages"].append(ToolMessage(
-                content=res["message"], 
+                content=f"Không thể thực thi {tool_name}: {str(e)}", 
                 tool_call_id=tool_call["id"], 
                 name=tool_name
             ))
-            update["quiz_draft"] = res["quiz_draft"]
 
     return update
 
