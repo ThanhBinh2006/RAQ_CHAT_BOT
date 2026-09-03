@@ -23,7 +23,7 @@ def agent_node(state: AgentState):
     3. Invokes LLM to decide: call tool or respond directly
     """
     model_config = state.get("model_config") or {}
-    supervisor_model = model_config.get("supervisor", "gemini-2.5-flash")
+    supervisor_model = model_config.get("supervisor", "deepseek-ai/deepseek-v4-pro-0813")
 
     llm = get_llm(supervisor_model, state.get("api_keys") or {})
     llm_with_tools = llm.bind_tools(TOOLS)

@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 1440  # 24 hours
 
     # ── System Cloud API Keys ────────────────────────────────
+    SYSTEM_NVIDIA_API_KEY: Optional[str] = None
     SYSTEM_GEMINI_API_KEY: Optional[str] = None
     SYSTEM_GROQ_API_KEY: Optional[str] = None
 

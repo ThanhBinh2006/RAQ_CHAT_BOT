@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 
 // ── Types ────────────────────────────────────────────────────
 export interface ApiKeys {
+  nvidia?: string;
   gemini?: string;
   groq?: string;
   openai?: string;
@@ -46,10 +47,10 @@ export function useAuth() {
 
 // ── Default model config ────────────────────────────────────
 const DEFAULT_MODEL_CONFIG: ModelConfig = {
-  supervisor: "gemini-2.5-flash",
-  generator: "gemini-2.5-flash",
-  evaluator: "gemini-2.5-flash",
-  synthesizer: "gemini-2.5-flash",
+  supervisor: "deepseek-ai/deepseek-v4-pro-0813",
+  generator: "deepseek-ai/deepseek-v4-pro-0813",
+  evaluator: "deepseek-ai/deepseek-v4-pro-0813",
+  synthesizer: "deepseek-ai/deepseek-v4-pro-0813",
 };
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";

@@ -45,7 +45,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
 
     # Parse headers for API keys and Model configs
     api_keys = {}
-    for provider in ["gemini", "groq", "openai", "anthropic"]:
+    for provider in ["nvidia", "gemini", "groq", "openai", "anthropic"]:
         val = req.headers.get(f"X-{provider.capitalize()}-Key")
         if val:
             api_keys[provider] = val
@@ -57,10 +57,10 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             model_config[role_name] = val
 
     default_model_config = {
-        "supervisor": "gemini-2.5-flash",
-        "generator": "gemini-2.5-flash",
-        "evaluator": "gemini-2.5-flash",
-        "synthesizer": "gemini-2.5-flash",
+        "supervisor": "deepseek-ai/deepseek-v4-pro-0813",
+        "generator": "deepseek-ai/deepseek-v4-pro-0813",
+        "evaluator": "deepseek-ai/deepseek-v4-pro-0813",
+        "synthesizer": "deepseek-ai/deepseek-v4-pro-0813",
     }
     final_model_config = {**default_model_config, **model_config}
 

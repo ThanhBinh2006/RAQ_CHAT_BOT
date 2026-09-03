@@ -11,6 +11,9 @@ from app.core.config import settings
 
 # ── Provider → Model mapping ────────────────────────────────
 PROVIDER_MAP = {
+    # NVIDIA models
+    "deepseek-ai/deepseek-v4-pro-0813": "nvidia",
+    "deepseek-v4-pro-0813": "nvidia",
     # Gemini models
     "gemini-2.5-flash": "gemini",
     "gemini-1.5-pro": "gemini",
@@ -72,6 +75,8 @@ def _detect_provider(model_name: str) -> str:
         return PROVIDER_MAP[model_name]
     # Heuristic fallback
     lower = model_name.lower()
+    if "deepseek" in lower or "nvidia" in lower or "nemotron" in lower:
+        return "nvidia"
     if "gemini" in lower:
         return "gemini"
     if "llama" in lower or "mixtral" in lower or "gemma" in lower:
@@ -80,7 +85,7 @@ def _detect_provider(model_name: str) -> str:
         return "openai"
     if "claude" in lower:
         return "anthropic"
-    return "gemini"  # default fallback
+    return "nvidia"  # default fallback
 
 
 def _resolve_api_key(provider: str, api_keys: Optional[Dict[str, str]] = None) -> Optional[str]:
@@ -95,6 +100,8 @@ def _resolve_api_key(provider: str, api_keys: Optional[Dict[str, str]] = None) -
             return user_key
 
     # Fallback to system keys
+    if provider == "nvidia":
+        return settings.SYSTEM_NVIDIA_API_KEY
     if provider == "gemini":
         return settings.SYSTEM_GEMINI_API_KEY
     if provider == "groq":
@@ -111,7 +118,7 @@ def get_llm(
     Create an LLM instance based on model name and available API keys.
 
     Args:
-        model_name: The model identifier (e.g., 'gemini-2.5-flash', 'gpt-4o')
+        model_name: The model identifier (e.g., 'deepseek-ai/deepseek-v4-pro-0813', 'gemini-2.5-flash', 'gpt-4o')
         api_keys: Dict of provider → API key from user BYOK
         temperature: LLM temperature setting
 
@@ -129,6 +136,15 @@ def get_llm(
         raise ValueError(
             f"Không tìm thấy API key cho provider '{provider}' (model: {model_name}). "
             f"Vui lòng cung cấp key qua Settings hoặc cấu hình SYSTEM_*_API_KEY trong .env."
+        )
+
+    if provider == "nvidia":
+        from langchain_openai import ChatOpenAI
+        return ChatOpenAI(
+            model=model_name,
+            openai_api_key=api_key,
+            openai_api_base="https://integrate.api.nvidia.com/v1",
+            temperature=temperature,
         )
 
     if provider == "gemini":

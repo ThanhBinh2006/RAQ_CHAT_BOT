@@ -10,42 +10,66 @@ from app.core.config import settings
 from app.core.db import AsyncSessionLocal
 
 
-async def _get_query_embedding(query: str) -> List[float]:
+async def _get_query_embedding(query: str, api_key: Optional[str] = None) -> List[float]:
     """
     Generate embedding for a search query.
-    Uses Gemini text-embedding-004 or mock mode.
+    Uses NVIDIA Nemotron-3-Embed-1B (2048 dims) or mock mode.
     """
     if settings.USE_MOCK_LLM:
         import hashlib
         hash_bytes = hashlib.sha256(query.encode()).digest()
         embedding = []
-        for i in range(768):
+        for i in range(2048):
             byte_val = hash_bytes[i % len(hash_bytes)]
             embedding.append((byte_val / 127.5) - 1.0)
         return embedding
 
-    import google.generativeai as genai
+    import httpx
 
-    api_key = settings.SYSTEM_GEMINI_API_KEY
-    if not api_key:
-        raise ValueError("SYSTEM_GEMINI_API_KEY is required for query embedding")
+    # Ưu tiên lấy key NVIDIA từ BYOK người dùng hoặc SYSTEM_NVIDIA_API_KEY
+    nv_key = api_key if (api_key and (api_key.startswith("nvapi-") or "nvapi" in api_key)) else settings.SYSTEM_NVIDIA_API_KEY
+    
+    if nv_key:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            res = await client.post(
+                "https://integrate.api.nvidia.com/v1/embeddings",
+                headers={
+                    "Authorization": f"Bearer {nv_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "input": [query],
+                    "model": "nvidia/nemotron-3-embed-1b",
+                    "input_type": "query",
+                }
+            )
+            if res.status_code == 200:
+                data = res.json()
+                return data["data"][0]["embedding"]
+            else:
+                print(f"NVIDIA embedding error ({res.status_code}): {res.text}")
 
-    genai.configure(api_key=api_key)
-    result = genai.embed_content(
-        model="models/gemini-embedding-001",
-        content=query,
-        task_type="RETRIEVAL_QUERY",
-        output_dimensionality=768
-    )
-    return result["embedding"]
+    # Fallback to Gemini if configured
+    gemini_key = api_key if (api_key and not api_key.startswith("nvapi-")) else settings.SYSTEM_GEMINI_API_KEY
+    if gemini_key:
+        import google.generativeai as genai
+        genai.configure(api_key=gemini_key)
+        result = genai.embed_content(
+            model="models/gemini-embedding-001",
+            content=query,
+            task_type="RETRIEVAL_QUERY",
+            output_dimensionality=2048
+        )
+        return result["embedding"]
+
+    raise ValueError("SYSTEM_NVIDIA_API_KEY hoặc user NVIDIA API key là bắt buộc cho query embedding")
 
 
 async def _generate_hypothetical_answers(query: str, api_key: Optional[str] = None) -> List[str]:
     """
     Kỹ thuật HyDE (Hypothetical Document Embeddings):
-    Dùng LLM tự sinh 4 câu/đoạn TRẢ LỜI giả định (2 Tiếng Việt, 2 Tiếng Anh)
-    trước khi tìm kiếm vector. Các câu trả lời giả định có ngữ nghĩa khớp với
-    đoạn văn trong tài liệu hơn nhiều so với câu hỏi.
+    Dùng DeepSeek V4 Pro sinh 4 câu/đoạn TRẢ LỜI giả định (2 Tiếng Việt, 2 Tiếng Anh)
+    trước khi tìm kiếm vector.
     """
     if settings.USE_MOCK_LLM:
         return [
@@ -59,7 +83,7 @@ async def _generate_hypothetical_answers(query: str, api_key: Optional[str] = No
         from app.llm.llm_factory import get_llm
         from langchain_core.messages import HumanMessage
 
-        llm = get_llm("gemini-2.5-flash", {"gemini": api_key} if api_key else {}, temperature=0.3)
+        llm = get_llm("deepseek-ai/deepseek-v4-pro-0813", {"nvidia": api_key} if api_key else {}, temperature=0.3)
         prompt = f"""Bạn là một chuyên gia RAG (Hypothetical Document Embeddings - HyDE).
 Nhiệm vụ: Dựa vào câu hỏi dưới đây của người dùng, hãy viết ra đúng 4 câu/đoạn TRẢ LỜI giả định ngắn gọn (mỗi câu 1-2 dòng) có thể xuất hiện trong tài liệu hoặc giáo trình để giải đáp cho câu hỏi này:
 - 2 câu/đoạn TRẢ LỜI bằng TIẾNG VIỆT (chứa định nghĩa, từ khóa học thuật tiếng Việt)
@@ -113,7 +137,7 @@ async def similarity_search(
 
     for text_query in search_texts:
         try:
-            query_embedding = await _get_query_embedding(text_query)
+            query_embedding = await _get_query_embedding(text_query, api_key=api_key)
             embedding_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
 
             conditions = ["library_id = CAST(:library_id AS uuid)"]

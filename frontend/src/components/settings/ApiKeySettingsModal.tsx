@@ -10,6 +10,10 @@ interface Props {
 
 // Available models per provider
 const PROVIDER_MODELS: Record<string, { name: string; models: string[] }> = {
+  nvidia: {
+    name: "NVIDIA NIM",
+    models: ["deepseek-ai/deepseek-v4-pro-0813"],
+  },
   gemini: {
     name: "Google Gemini",
     models: ["gemini-2.5-flash", "gemini-1.5-pro", "gemini-1.5-flash-8b"],

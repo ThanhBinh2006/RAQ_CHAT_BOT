@@ -62,14 +62,10 @@ CREATE TABLE document_chunks (
     page_number INT,
     chunk_index INT,
     content TEXT NOT NULL,
-    embedding VECTOR(768),
+    embedding VECTOR(2048),
     metadata JSONB
 );
 CREATE INDEX idx_chunks_library_user ON document_chunks(library_id, user_id);
--- IVFFlat index for vector cosine similarity search
--- Note: requires at least ~100 rows to be effective; okay to create early
-CREATE INDEX idx_chunks_embedding ON document_chunks
-    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
 -- 6. quizzes (created BEFORE chat_messages because chat_messages.quiz_id references it)
 CREATE TABLE quizzes (

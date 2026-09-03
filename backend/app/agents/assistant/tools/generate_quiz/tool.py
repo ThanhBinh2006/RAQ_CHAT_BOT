@@ -36,10 +36,10 @@ async def generate_quiz(
         "eval_details": None,
         "accepted_questions": [],
         "model_config": state.get("model_config") or {
-            "supervisor": "gemini-2.5-flash",
-            "generator": "gemini-2.5-flash",
-            "evaluator": "gemini-2.5-flash",
-            "synthesizer": "gemini-2.5-flash",
+            "supervisor": "deepseek-ai/deepseek-v4-pro-0813",
+            "generator": "deepseek-ai/deepseek-v4-pro-0813",
+            "evaluator": "deepseek-ai/deepseek-v4-pro-0813",
+            "synthesizer": "deepseek-ai/deepseek-v4-pro-0813",
         },
         "api_keys": state.get("api_keys") or {},
     })

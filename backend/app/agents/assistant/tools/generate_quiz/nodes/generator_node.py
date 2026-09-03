@@ -99,7 +99,7 @@ Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác
         }
 
     # Real mode
-    generator_model = (state.get("model_config") or {}).get("generator", "gemini-2.5-flash")
+    generator_model = (state.get("model_config") or {}).get("generator", "deepseek-ai/deepseek-v4-pro-0813")
     llm = get_llm(
         generator_model,
         state.get("api_keys") or {},

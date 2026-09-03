@@ -64,46 +64,70 @@ def _chunk_pages(pages: List[dict]) -> List[dict]:
 async def _get_embeddings(texts: List[str]) -> List[List[float]]:
     """
     Generate embeddings for a list of texts.
-    Uses Gemini text-embedding-004 (768 dims) or mock mode.
+    Uses NVIDIA Nemotron-3-Embed-1B (2048 dims) or mock mode.
     """
     if settings.USE_MOCK_LLM:
-        # Mock mode: return random-ish vectors of 768 dims (deterministic per text)
+        # Mock mode: return random-ish vectors of 2048 dims (deterministic per text)
         import hashlib
         embeddings = []
         for text in texts:
             # Create a deterministic pseudo-embedding based on text hash
             hash_bytes = hashlib.sha256(text.encode()).digest()
-            # Expand hash to 768 floats between -1 and 1
+            # Expand hash to 2048 floats between -1 and 1
             embedding = []
-            for i in range(768):
+            for i in range(2048):
                 byte_val = hash_bytes[i % len(hash_bytes)]
                 embedding.append((byte_val / 127.5) - 1.0)
             embeddings.append(embedding)
         return embeddings
 
-    # Real mode: use Gemini text-embedding-004
-    import google.generativeai as genai
+    # Real mode: Use NVIDIA Nemotron-3-Embed-1B
+    if settings.SYSTEM_NVIDIA_API_KEY:
+        import httpx
+        all_embeddings = []
+        batch_size = 32
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            for i in range(0, len(texts), batch_size):
+                batch = texts[i:i + batch_size]
+                res = await client.post(
+                    "https://integrate.api.nvidia.com/v1/embeddings",
+                    headers={
+                        "Authorization": f"Bearer {settings.SYSTEM_NVIDIA_API_KEY}",
+                        "Content-Type": "application/json",
+                    },
+                    json={
+                        "input": batch,
+                        "model": "nvidia/nemotron-3-embed-1b",
+                        "input_type": "passage",
+                    }
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    # data["data"] sorted by index
+                    sorted_items = sorted(data["data"], key=lambda x: x["index"])
+                    all_embeddings.extend([item["embedding"] for item in sorted_items])
+                else:
+                    raise ValueError(f"NVIDIA Ingestion embedding error ({res.status_code}): {res.text}")
+        return all_embeddings
 
-    api_key = settings.SYSTEM_GEMINI_API_KEY
-    if not api_key:
-        raise ValueError("SYSTEM_GEMINI_API_KEY is required for embedding generation")
+    # Fallback to Gemini if configured
+    if settings.SYSTEM_GEMINI_API_KEY:
+        import google.generativeai as genai
+        genai.configure(api_key=settings.SYSTEM_GEMINI_API_KEY)
+        all_embeddings = []
+        batch_size = 100
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i:i + batch_size]
+            result = genai.embed_content(
+                model="models/gemini-embedding-001",
+                content=batch,
+                task_type="RETRIEVAL_DOCUMENT",
+                output_dimensionality=2048
+            )
+            all_embeddings.extend(result["embedding"])
+        return all_embeddings
 
-    genai.configure(api_key=api_key)
-
-    # Process in batches of 100 (Gemini batch limit)
-    all_embeddings = []
-    batch_size = 100
-    for i in range(0, len(texts), batch_size):
-        batch = texts[i:i + batch_size]
-        result = genai.embed_content(
-            model="models/gemini-embedding-001",
-            content=batch,
-            task_type="RETRIEVAL_DOCUMENT",
-            output_dimensionality=768 
-        )
-        all_embeddings.extend(result["embedding"])
-
-    return all_embeddings
+    raise ValueError("SYSTEM_NVIDIA_API_KEY is required for embedding generation")
 
 
 async def ingest_document(document_id: str, file_content: bytes):
