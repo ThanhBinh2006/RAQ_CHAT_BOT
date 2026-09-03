@@ -76,22 +76,50 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         "model_config": final_model_config,
     }
 
+    def extract_text_content(content: Any) -> str:
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            text_parts = []
+            for part in content:
+                if isinstance(part, str):
+                    text_parts.append(part)
+                elif isinstance(part, dict):
+                    if part.get("type") == "text":
+                        text_parts.append(part.get("text", ""))
+                    elif "text" in part:
+                        text_parts.append(str(part["text"]))
+                elif hasattr(part, "text"):
+                    text_parts.append(str(getattr(part, "text", "")))
+            return "".join(text_parts)
+        return str(content) if content else ""
+
     async def generate_stream():
         import asyncio
         # 1. Chạy hoàn tất toàn bộ LangGraph ReAct agent & tools trước để có kết quả đầy đủ
         final_state = await graph.ainvoke(state)
 
-        # 2. Lấy nội dung câu trả lời cuối cùng của Assistant và stream về Frontend
+        # 2. Lấy nội dung câu trả lời cuối cùng của Assistant
         messages = final_state.get("messages", [])
-        if messages:
-            last_message = messages[-1]
-            content = last_message.content
-            if content and isinstance(content, str):
-                # Tách thành từng từ để stream mượt mà về client
-                words = content.split(" ")
-                for i, word in enumerate(words):
-                    chunk = word if i == len(words) - 1 else word + " "
-                    yield chunk
-                    await asyncio.sleep(0.015)
+        text_to_stream = ""
+        for msg in reversed(messages):
+            # Ưu tiên lấy tin nhắn từ AI (AIMessage) có chứa nội dung
+            content_str = extract_text_content(getattr(msg, "content", ""))
+            if content_str.strip() and getattr(msg, "type", "") != "tool":
+                text_to_stream = content_str
+                break
+
+        if not text_to_stream and messages:
+            text_to_stream = extract_text_content(getattr(messages[-1], "content", ""))
+
+        if not text_to_stream:
+            text_to_stream = "Không nhận được phản hồi từ mô hình."
+
+        # 3. Stream text mượt mà về Frontend
+        words = text_to_stream.split(" ")
+        for i, word in enumerate(words):
+            chunk = word if i == len(words) - 1 else word + " "
+            yield chunk
+            await asyncio.sleep(0.015)
 
     return StreamingResponse(generate_stream(), media_type="text/plain")

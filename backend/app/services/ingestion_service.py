@@ -95,20 +95,12 @@ async def _get_embeddings(texts: List[str]) -> List[List[float]]:
     batch_size = 100
     for i in range(0, len(texts), batch_size):
         batch = texts[i:i + batch_size]
-        try:
-            result = genai.embed_content(
-                model="models/text-embedding-004",
-                content=batch,
-                task_type="RETRIEVAL_DOCUMENT",
-                output_dimensionality=768 
-            )
-        except Exception:
-            result = genai.embed_content(
-                model="models/embedding-001",
-                content=batch,
-                task_type="RETRIEVAL_DOCUMENT",
-                output_dimensionality=768 
-            )
+        result = genai.embed_content(
+            model="models/gemini-embedding-001",
+            content=batch,
+            task_type="RETRIEVAL_DOCUMENT",
+            output_dimensionality=768 
+        )
         all_embeddings.extend(result["embedding"])
 
     return all_embeddings
