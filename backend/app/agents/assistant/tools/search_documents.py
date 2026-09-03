@@ -18,9 +18,10 @@ async def search_documents(
 
     from app.services.vector_store import similarity_search
 
-    # Get optional user Gemini key for embedding
+    # Lấy key riêng cho Embedding và LLM nếu người dùng cung cấp (BYOK)
     api_keys = state.get("api_keys", {})
-    gemini_key = api_keys.get("gemini")
+    embedding_key = api_keys.get("nvidia_embedding") or api_keys.get("nvidia") or api_keys.get("gemini")
+    llm_key = api_keys.get("nvidia") or api_keys.get("gemini")
 
     library_id = state.get("library_id")
     user_id = state.get("user_id")
@@ -30,7 +31,8 @@ async def search_documents(
         library_id=library_id,
         user_id=user_id,
         top_k=2,
-        api_key=gemini_key,
+        api_key=embedding_key,
+        llm_api_key=llm_key,
     )
 
     citations = [

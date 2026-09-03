@@ -17,6 +17,7 @@ function getHeaders(): HeadersInit {
     if (keys) {
       const parsed = JSON.parse(keys);
       if (parsed.nvidia) headers["X-Nvidia-Key"] = parsed.nvidia;
+      if (parsed.nvidia_embedding) headers["X-Nvidia-Embedding-Key"] = parsed.nvidia_embedding;
       if (parsed.gemini) headers["X-Gemini-Key"] = parsed.gemini;
       if (parsed.groq) headers["X-Groq-Key"] = parsed.groq;
       if (parsed.openai) headers["X-OpenAI-Key"] = parsed.openai;

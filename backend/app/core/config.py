@@ -25,6 +25,7 @@ class Settings(BaseSettings):
 
     # ── System Cloud API Keys ────────────────────────────────
     SYSTEM_NVIDIA_API_KEY: Optional[str] = None
+    SYSTEM_NVIDIA_EMBEDDING_KEY: Optional[str] = None
     SYSTEM_GEMINI_API_KEY: Optional[str] = None
     SYSTEM_GROQ_API_KEY: Optional[str] = None
 

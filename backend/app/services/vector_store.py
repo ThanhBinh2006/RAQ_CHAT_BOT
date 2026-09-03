@@ -26,8 +26,13 @@ async def _get_query_embedding(query: str, api_key: Optional[str] = None) -> Lis
 
     import httpx
 
-    # Ưu tiên lấy key NVIDIA từ BYOK người dùng hoặc SYSTEM_NVIDIA_API_KEY
-    nv_key = api_key if (api_key and (api_key.startswith("nvapi-") or "nvapi" in api_key)) else settings.SYSTEM_NVIDIA_API_KEY
+    # Ưu tiên lấy key NVIDIA Embedding từ: 
+    # 1. api_key từ người dùng (nếu có)
+    # 2. SYSTEM_NVIDIA_EMBEDDING_KEY trong .env
+    # 3. SYSTEM_NVIDIA_API_KEY trong .env
+    nv_key = api_key if (api_key and (api_key.startswith("nvapi-") or "nvapi" in api_key)) else (
+        settings.SYSTEM_NVIDIA_EMBEDDING_KEY or settings.SYSTEM_NVIDIA_API_KEY
+    )
     
     if nv_key:
         async with httpx.AsyncClient(timeout=30.0) as client:
@@ -62,7 +67,7 @@ async def _get_query_embedding(query: str, api_key: Optional[str] = None) -> Lis
         )
         return result["embedding"]
 
-    raise ValueError("SYSTEM_NVIDIA_API_KEY hoặc user NVIDIA API key là bắt buộc cho query embedding")
+    raise ValueError("SYSTEM_NVIDIA_EMBEDDING_KEY hoặc user NVIDIA Embedding API key là bắt buộc cho query embedding")
 
 
 async def _generate_hypothetical_answers(query: str, api_key: Optional[str] = None) -> List[str]:
@@ -83,7 +88,8 @@ async def _generate_hypothetical_answers(query: str, api_key: Optional[str] = No
         from app.llm.llm_factory import get_llm
         from langchain_core.messages import HumanMessage
 
-        llm = get_llm("deepseek-ai/deepseek-v4-pro-0813", {"nvidia": api_key} if api_key else {}, temperature=0.3)
+        llm_key = api_key or settings.SYSTEM_NVIDIA_API_KEY
+        llm = get_llm("deepseek-ai/deepseek-v4-pro-0813", {"nvidia": llm_key} if llm_key else {}, temperature=0.3)
         prompt = f"""Bạn là một chuyên gia RAG (Hypothetical Document Embeddings - HyDE).
 Nhiệm vụ: Dựa vào câu hỏi dưới đây của người dùng, hãy viết ra đúng 4 câu/đoạn TRẢ LỜI giả định ngắn gọn (mỗi câu 1-2 dòng) có thể xuất hiện trong tài liệu hoặc giáo trình để giải đáp cho câu hỏi này:
 - 2 câu/đoạn TRẢ LỜI bằng TIẾNG VIỆT (chứa định nghĩa, từ khóa học thuật tiếng Việt)
@@ -113,11 +119,12 @@ async def similarity_search(
     user_id: Optional[str] = None,
     top_k: int = 6,
     api_key: Optional[str] = None,
+    llm_api_key: Optional[str] = None,
 ) -> List[dict]:
     """
     Perform HyDE (Hypothetical Document Embeddings) cosine similarity search:
-    1. Generate 4 hypothetical answers (2 Vietnamese, 2 English).
-    2. Embed the original query + all 4 hypothetical answers.
+    1. Generate 4 hypothetical answers (2 Vietnamese, 2 English) using LLM key.
+    2. Embed the original query + all 4 hypothetical answers using Embedding key.
     3. Search pgvector for each embedding.
     4. Deduplicate retrieved chunks by ID, taking the maximum similarity score.
     5. Return top_k most relevant unique chunks.
@@ -126,7 +133,7 @@ async def similarity_search(
         return []
 
     # 1. Sinh 4 câu trả lời giả định (2 Tiếng Việt, 2 Tiếng Anh)
-    hypothetical_answers = await _generate_hypothetical_answers(query, api_key=api_key)
+    hypothetical_answers = await _generate_hypothetical_answers(query, api_key=llm_api_key)
     search_texts = [query] + hypothetical_answers
     print(f"🔍 HyDE Search: Truy vấn gốc + {len(hypothetical_answers)} câu trả lời giả định:")
     for idx, ans in enumerate(search_texts):

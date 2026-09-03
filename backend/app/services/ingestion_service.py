@@ -82,7 +82,8 @@ async def _get_embeddings(texts: List[str]) -> List[List[float]]:
         return embeddings
 
     # Real mode: Use NVIDIA Nemotron-3-Embed-1B
-    if settings.SYSTEM_NVIDIA_API_KEY:
+    embed_key = settings.SYSTEM_NVIDIA_EMBEDDING_KEY or settings.SYSTEM_NVIDIA_API_KEY
+    if embed_key:
         import httpx
         all_embeddings = []
         batch_size = 32
@@ -92,7 +93,7 @@ async def _get_embeddings(texts: List[str]) -> List[List[float]]:
                 res = await client.post(
                     "https://integrate.api.nvidia.com/v1/embeddings",
                     headers={
-                        "Authorization": f"Bearer {settings.SYSTEM_NVIDIA_API_KEY}",
+                        "Authorization": f"Bearer {embed_key}",
                         "Content-Type": "application/json",
                     },
                     json={

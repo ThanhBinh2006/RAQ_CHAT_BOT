@@ -50,6 +50,10 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         if val:
             api_keys[provider] = val
 
+    val_embed = req.headers.get("X-Nvidia-Embedding-Key")
+    if val_embed:
+        api_keys["nvidia_embedding"] = val_embed
+
     model_config = {}
     for role_name in ["supervisor", "generator", "evaluator", "synthesizer"]:
         val = req.headers.get(f"X-{role_name.capitalize()}-Model")
