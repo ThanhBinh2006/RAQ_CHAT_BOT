@@ -29,7 +29,7 @@ async def search_documents(
         query=query,
         library_id=library_id,
         user_id=user_id,
-        top_k=6,
+        top_k=2,
         api_key=gemini_key,
     )
 
