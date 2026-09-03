@@ -1,8 +1,5 @@
 "use client";
 
-// Import useAgent thay vì useCoAgent
-import { useAgent } from "@copilotkit/react-core/v2";
-
 export interface AgentState {
   messages: unknown[];
   user_id: string;
@@ -26,13 +23,4 @@ export interface AgentState {
     explanation?: string;
     source_page?: number;
   }> | null;
-}
-
-export function useAssistant() {
-  // Cú pháp chính xác của v2 useAgent sử dụng 'agentId'
-  const { agent } = useAgent({
-    agentId: "assistant"
-  });
-
-  return agent;
 }

@@ -8,12 +8,8 @@
     "start": "next start"
   },
   "dependencies": {
-    "@ag-ui/client": "^0.0.59",
-    "@ai-sdk/google-vertex": "^5.0.75",
-    "@ai-sdk/openai-compatible": "^3.0.43",
-    "@copilotkit/react-core": "^1.70.0",
-    "@copilotkit/react-ui": "^1.70.0",
-    "@copilotkit/runtime": "^1.70.0",
+    "@ai-sdk/react": "^4.0.94",
+    "ai": "^7.0.91",
     "axios": "^1.20.0",
     "jspdf": "^4.2.1",
     "lucide-react": "^1.39.0",
