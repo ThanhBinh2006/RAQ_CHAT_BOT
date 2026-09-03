@@ -3,7 +3,7 @@
 // Import useAgent thay vì useCoAgent
 import { useAgent } from "@copilotkit/react-core/v2";
 
-interface AgentState {
+export interface AgentState {
   messages: unknown[];
   user_id: string;
   library_id: string;

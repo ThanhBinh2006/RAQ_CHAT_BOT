@@ -5,22 +5,17 @@ import { QuizPreviewCard } from "../quiz/QuizPreviewCard";
 import { QuizEditorCard } from "../quiz/QuizEditorCard";
 import { MessageSquare } from "lucide-react";
 import "@copilotkit/react-core/v2/styles.css";
-import { useAssistant } from "../../hooks/useAssistant";
+import { useAssistant, AgentState } from "../../hooks/useAssistant";
 
 interface Props {
   libraryId: string;
   sessionId: string | null;
 }
 
-// 💡 Khai báo kiểu dữ liệu cho State của Agent để TypeScript kiểm soát chặt chẽ
-interface AgentState {
-  quiz_draft?: any[];
-}
-
 export function ChatWindow({ libraryId, sessionId }: Props) {
   const [editing, setEditing] = useState(false);
 
-  // 💡 Sử dụng custom hook của chúng ta thay vì gọi trực tiếp
+  // 💡 Lấy agent ra từ custom hook
   const agent = useAssistant();
 
   // Ép kiểu hoặc fallback object trống để tránh lỗi undefined khi chưa đồng bộ xong
