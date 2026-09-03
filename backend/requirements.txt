@@ -1,48 +1,49 @@
 # ── Web Framework ────────────────────────────────────────────
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-python-multipart==0.0.9
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.6
+python-multipart>=0.0.9
 
 # ── Database ─────────────────────────────────────────────────
-sqlalchemy[asyncio]==2.0.35
+sqlalchemy[asyncio]>=2.0.35
 asyncpg>=0.30.0
-pgvector==0.3.5
-alembic==1.13.2
+pgvector>=0.5.0
+alembic>=1.13.2
 
 # ── Authentication ───────────────────────────────────────────
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-bcrypt==4.0.1
+python-jose[cryptography]>=3.3.0
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.0.1
 email-validator>=2.0.0
 
 # ── Pydantic ─────────────────────────────────────────────────
-pydantic==2.9.2
-pydantic-settings==2.5.2
+pydantic>=2.9.2
+pydantic-settings>=2.5.2
 
 # ── LangChain / LangGraph ───────────────────────────────────
-langchain-core==0.3.17
-langchain-community==0.3.5
-langchain-anthropic==0.3.0
-langchain-google-genai==2.0.5
-langchain-groq==0.2.1
-langchain-openai==0.2.5
-langchain-text-splitters==0.3.2
+langchain-core>=0.3.0,<0.4.0
+langchain-community>=0.3.0,<0.4.0
+langchain-anthropic>=0.3.0,<0.4.0////
+langchain-google-genai>=2.0.0
+langchain-groq>=0.2.0
+langchain-openai>=0.2.0
+langchain-text-splitters>=0.3.0
 langgraph>=0.2.50
-langgraph-checkpoint-postgres==2.0.6
+langgraph-checkpoint-postgres>=2.0.0
 
-# ── CopilotKit ───────────────────────────────────────────────
+
+# ── CopilotKit (ĐÃ CẬP NHẬT) ─────────────────────────────────
 copilotkit>=0.1.96
 
 # ── PDF Processing ───────────────────────────────────────────
-PyMuPDF==1.24.11
+PyMuPDF>=1.24.11
 
 # ── Object Storage ───────────────────────────────────────────
-minio==7.2.9
+minio>=7.2.9
 
 # ── Google AI (Embeddings) ───────────────────────────────────
-google-generativeai==0.8.3
+google-generativeai>=0.8.3
 
 # ── Utilities ────────────────────────────────────────────────
 python-dotenv==1.0.1
-httpx==0.27.2
+httpx==0.28.1
 psycopg[binary]>=3.2.0
