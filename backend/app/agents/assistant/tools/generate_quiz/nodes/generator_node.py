@@ -120,7 +120,6 @@ Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác
         }
 
     # Real mode
-    from app.core.config import settings
     generator_model = (state.get("model_config") or {}).get("generator", settings.DEFAULT_CHAT_MODEL)
     llm = get_llm(
         generator_model,
