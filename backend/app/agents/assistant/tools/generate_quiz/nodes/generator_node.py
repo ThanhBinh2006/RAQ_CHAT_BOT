@@ -23,14 +23,34 @@ async def generator_node(state: QuizState) -> dict:
     if num_needed <= 0:
         return {"draft_questions": []}
 
-    # Fetch context chunks if not already loaded for this batch
+    # Fetch context chunks:
+    # If this is a retry within the same batch, reuse existing context_chunks.
+    # Otherwise, fetch new chunks excluding previously used chunks (WHERE id NOT IN used_chunk_ids).
     focus = state.get("focus_topic") or "toàn bộ nội dung tài liệu"
-    chunks = await similarity_search(
-        query=f"Kiến thức trọng tâm: {focus}",
-        library_id=state.get("library_id"),
-        user_id=state.get("user_id"),
-        top_k=10,
-    )
+    used_chunk_ids = list(state.get("used_chunk_ids") or [])
+
+    if state.get("retry_count", 0) > 0 and state.get("context_chunks"):
+        chunks = state["context_chunks"]
+    else:
+        api_keys = state.get("api_keys") or {}
+        embedding_key = api_keys.get("nvidia_embedding") or api_keys.get("nvidia") or api_keys.get("gemini")
+        llm_key = api_keys.get("nvidia") or api_keys.get("gemini")
+
+        chunks = await similarity_search(
+            query=f"Kiến thức trọng tâm: {focus}",
+            library_id=state.get("library_id"),
+            user_id=state.get("user_id"),
+            top_k=10,
+            exclude_chunk_ids=used_chunk_ids,
+            api_key=embedding_key,
+            llm_api_key=llm_key,
+        )
+
+        for c in chunks:
+            cid = c.get("id")
+            if cid and cid not in used_chunk_ids:
+                used_chunk_ids.append(cid)
+
     context_text = "\n\n".join(
         f"[Trang {c['page_number']}] {c['content']}" for c in chunks
     )
@@ -95,6 +115,7 @@ Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác
         return {
             "draft_questions": mock_questions,
             "context_chunks": chunks,
+            "used_chunk_ids": used_chunk_ids,
             "retry_count": state.get("retry_count", 0),
         }
 
@@ -136,5 +157,6 @@ Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác
     return {
         "draft_questions": draft_questions,
         "context_chunks": chunks,
+        "used_chunk_ids": used_chunk_ids,
         "retry_count": state.get("retry_count", 0),
     }

@@ -18,6 +18,7 @@ class QuizState(TypedDict):
 
     # Context from vector search
     context_chunks: List[dict]
+    used_chunk_ids: List[str]
 
     # Draft questions from generator
     draft_questions: Optional[List[dict]]

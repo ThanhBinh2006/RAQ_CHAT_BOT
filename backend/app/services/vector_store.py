@@ -3,6 +3,7 @@ Vector similarity search over document_chunks using pgvector.
 Supports both real embedding (Gemini) and mock mode.
 """
 
+import uuid
 from typing import List, Optional
 from sqlalchemy import text
 
@@ -118,6 +119,7 @@ async def similarity_search(
     library_id: Optional[str] = None,
     user_id: Optional[str] = None,
     top_k: int = 6,
+    exclude_chunk_ids: Optional[List[str]] = None,
     api_key: Optional[str] = None,
     llm_api_key: Optional[str] = None,
 ) -> List[dict]:
@@ -125,7 +127,7 @@ async def similarity_search(
     Perform HyDE (Hypothetical Document Embeddings) cosine similarity search:
     1. Generate 4 hypothetical answers (2 Vietnamese, 2 English) using LLM key.
     2. Embed the original query + all 4 hypothetical answers using Embedding key.
-    3. Search pgvector for each embedding.
+    3. Search pgvector for each embedding (excluding exclude_chunk_ids if provided).
     4. Deduplicate retrieved chunks by ID, taking the maximum similarity score.
     5. Return top_k most relevant unique chunks.
     """
@@ -138,6 +140,15 @@ async def similarity_search(
     print(f"🔍 HyDE Search: Truy vấn gốc + {len(hypothetical_answers)} câu trả lời giả định:")
     for idx, ans in enumerate(search_texts):
         print(f"   [{idx}] {ans}")
+
+    # Validate and clean exclude_chunk_ids
+    valid_exclude_ids = []
+    if exclude_chunk_ids:
+        for eid in exclude_chunk_ids:
+            try:
+                valid_exclude_ids.append(str(uuid.UUID(str(eid))))
+            except (ValueError, TypeError):
+                pass
 
     # 2. Tìm kiếm vector cho từng câu trả lời giả định
     chunk_map = {}  # chunk_id -> chunk dict
@@ -156,6 +167,10 @@ async def similarity_search(
             if user_id:
                 conditions.append("user_id = CAST(:user_id AS uuid)")
                 params["user_id"] = user_id
+
+            if valid_exclude_ids:
+                cast_uuids = ", ".join(f"CAST('{uid}' AS uuid)" for uid in valid_exclude_ids)
+                conditions.append(f"id NOT IN ({cast_uuids})")
 
             where_clause = " AND ".join(conditions)
 
@@ -179,6 +194,8 @@ async def similarity_search(
 
             for row in rows:
                 row_id = str(row.id)
+                if valid_exclude_ids and row_id in valid_exclude_ids:
+                    continue
                 score = float(row.score) if row.score else 0.0
                 if row_id not in chunk_map or score > chunk_map[row_id]["score"]:
                     chunk_map[row_id] = {
@@ -194,4 +211,18 @@ async def similarity_search(
 
     # 3. Sắp xếp các chunk theo điểm tương đồng cao nhất và lấy top_k
     sorted_chunks = sorted(chunk_map.values(), key=lambda x: x["score"], reverse=True)
+
+    # Fallback: nếu loại trừ hết sạch chunk (ví dụ tài liệu ngắn), tự động tìm lại không loại trừ để không bị rỗng
+    if not sorted_chunks and valid_exclude_ids:
+        print("⚠️ Hết chunk mới để loại trừ, tải lại các chunk sẵn có...")
+        return await similarity_search(
+            query=query,
+            library_id=library_id,
+            user_id=user_id,
+            top_k=top_k,
+            exclude_chunk_ids=None,
+            api_key=api_key,
+            llm_api_key=llm_api_key,
+        )
+
     return sorted_chunks[:top_k]

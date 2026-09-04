@@ -25,6 +25,7 @@ async def synthesizer_node(state: QuizState) -> dict:
             "accepted_questions": accepted,
             "current_batch": state.get("current_batch", 0) + 1,
             "retry_count": 0,
+            "context_chunks": [],
             "draft_questions": None,
             "eval_feedback": None,
             "eval_details": None,
@@ -74,6 +75,7 @@ async def synthesizer_node(state: QuizState) -> dict:
         "accepted_questions": accepted,
         "current_batch": state.get("current_batch", 0) + 1,
         "retry_count": 0,  # Reset for next batch
+        "context_chunks": [],  # Clear context chunks so next batch loads fresh ones
         "draft_questions": None,
         "eval_feedback": None,
         "eval_details": None,
