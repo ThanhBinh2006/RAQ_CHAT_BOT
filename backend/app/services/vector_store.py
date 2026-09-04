@@ -44,7 +44,7 @@ async def _get_query_embedding(query: str, api_key: Optional[str] = None) -> Lis
                 },
                 json={
                     "input": [query],
-                    "model": "nvidia/nemotron-3-embed-1b",
+                    "model": settings.DEFAULT_EMBEDDING_MODEL,
                     "input_type": "query",
                 }
             )
@@ -89,7 +89,7 @@ async def _generate_hypothetical_answers(query: str, api_key: Optional[str] = No
         from langchain_core.messages import HumanMessage
 
         llm_key = api_key or settings.SYSTEM_NVIDIA_API_KEY
-        llm = get_llm("deepseek-ai/deepseek-v4-pro-0813", {"nvidia": llm_key} if llm_key else {}, temperature=0.3)
+        llm = get_llm(settings.DEFAULT_CHAT_MODEL, {"nvidia": llm_key} if llm_key else {}, temperature=0.3)
         prompt = f"""Bạn là một chuyên gia RAG (Hypothetical Document Embeddings - HyDE).
 Nhiệm vụ: Dựa vào câu hỏi dưới đây của người dùng, hãy viết ra đúng 4 câu/đoạn TRẢ LỜI giả định ngắn gọn (mỗi câu 1-2 dòng) có thể xuất hiện trong tài liệu hoặc giáo trình để giải đáp cho câu hỏi này:
 - 2 câu/đoạn TRẢ LỜI bằng TIẾNG VIỆT (chứa định nghĩa, từ khóa học thuật tiếng Việt)

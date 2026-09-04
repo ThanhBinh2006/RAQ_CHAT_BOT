@@ -14,6 +14,8 @@ PROVIDER_MAP = {
     # NVIDIA models
     "deepseek-ai/deepseek-v4-pro-0813": "nvidia",
     "deepseek-v4-pro-0813": "nvidia",
+    "deepseek-ai/deepseek-v4-flash-0731": "nvidia",
+    "deepseek-v4-flash-0731": "nvidia",
     # Gemini models
     "gemini-2.5-flash": "gemini",
     "gemini-1.5-pro": "gemini",

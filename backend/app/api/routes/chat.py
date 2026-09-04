@@ -7,6 +7,7 @@ import json
 from app.agents.assistant.graph import build_assistant_graph
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from app.core.security import decode_access_token
+from app.core.config import settings
 
 router = APIRouter()
 
@@ -61,10 +62,10 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             model_config[role_name] = val
 
     default_model_config = {
-        "supervisor": "deepseek-ai/deepseek-v4-pro-0813",
-        "generator": "deepseek-ai/deepseek-v4-pro-0813",
-        "evaluator": "deepseek-ai/deepseek-v4-pro-0813",
-        "synthesizer": "deepseek-ai/deepseek-v4-pro-0813",
+        "supervisor": settings.DEFAULT_CHAT_MODEL,
+        "generator": settings.DEFAULT_CHAT_MODEL,
+        "evaluator": settings.DEFAULT_CHAT_MODEL,
+        "synthesizer": settings.DEFAULT_CHAT_MODEL,
     }
     final_model_config = {**default_model_config, **model_config}
 

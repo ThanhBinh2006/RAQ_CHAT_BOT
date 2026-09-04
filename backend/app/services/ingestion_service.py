@@ -98,7 +98,7 @@ async def _get_embeddings(texts: List[str]) -> List[List[float]]:
                     },
                     json={
                         "input": batch,
-                        "model": "nvidia/nemotron-3-embed-1b",
+                        "model": settings.DEFAULT_EMBEDDING_MODEL,
                         "input_type": "passage",
                     }
                 )

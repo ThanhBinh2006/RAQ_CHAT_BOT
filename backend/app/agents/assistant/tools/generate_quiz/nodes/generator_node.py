@@ -99,7 +99,8 @@ Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác
         }
 
     # Real mode
-    generator_model = (state.get("model_config") or {}).get("generator", "deepseek-ai/deepseek-v4-pro-0813")
+    from app.core.config import settings
+    generator_model = (state.get("model_config") or {}).get("generator", settings.DEFAULT_CHAT_MODEL)
     llm = get_llm(
         generator_model,
         state.get("api_keys") or {},

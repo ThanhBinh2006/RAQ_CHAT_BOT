@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     SYSTEM_GEMINI_API_KEY: Optional[str] = None
     SYSTEM_GROQ_API_KEY: Optional[str] = None
 
+    # ── Default Models ───────────────────────────────────────
+    DEFAULT_CHAT_MODEL: str = "deepseek-ai/deepseek-v4-pro-0813"
+    DEFAULT_EMBEDDING_MODEL: str = "nvidia/nemotron-3-embed-1b"
+
     # ── Mock Mode ────────────────────────────────────────────
     USE_MOCK_LLM: bool = True
 
