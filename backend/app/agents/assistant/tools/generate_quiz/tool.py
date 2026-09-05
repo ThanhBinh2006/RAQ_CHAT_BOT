@@ -30,6 +30,7 @@ async def generate_quiz(
         "total_batches": 0,
         "current_batch": 0,
         "retry_count": 0,
+        "aspect_hints": [],
         "context_chunks": [],
         "used_chunk_ids": [],
         "draft_questions": None,

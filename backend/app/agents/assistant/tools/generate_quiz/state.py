@@ -15,6 +15,7 @@ class QuizState(TypedDict):
     total_batches: int
     current_batch: int
     retry_count: int
+    aspect_hints: List[str]
 
     # Context from vector search
     context_chunks: List[dict]

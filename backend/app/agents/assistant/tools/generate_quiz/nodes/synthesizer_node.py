@@ -48,6 +48,22 @@ def _standardize_question(q: dict) -> Optional[dict]:
     except (ValueError, TypeError):
         source_page = None
 
+    source_file = q.get("source_file") or q.get("file_name")
+    if source_file:
+        source_file = str(source_file).strip()
+    else:
+        source_file = None
+
+    # Tự động gắn tag nguồn [tên_file - Trang X] vào explanation nếu có và chưa được gắn
+    if explanation:
+        tag_parts = []
+        if source_file:
+            tag_parts.append(source_file)
+        if source_page:
+            tag_parts.append(f"Trang {source_page}")
+        if tag_parts and not explanation.startswith("["):
+            explanation = f"[{' - '.join(tag_parts)}] {explanation}"
+
     return {
         "question_text": question_text,
         "option_a": opt_a,
@@ -57,6 +73,7 @@ def _standardize_question(q: dict) -> Optional[dict]:
         "correct_answer": ans,
         "explanation": explanation,
         "source_page": source_page,
+        "source_file": source_file,
     }
 
 
@@ -127,10 +144,11 @@ async def synthesizer_node(state: QuizState) -> dict:
                     "correct_answer": "A",
                     "explanation": f"Đã viết lại để khắc phục lỗi: {issue}",
                     "source_page": q.get("source_page") or 1,
+                    "source_file": q.get("source_file") or "tai_lieu.pdf",
                 }
         else:
             context_text = "\n\n".join(
-                f"[Trang {c.get('page_number', '?')}] {c.get('content', '')}"
+                f"[{c.get('file_name', 'Tài liệu')} - Trang {c.get('page_number', '?')}] {c.get('content', '')}"
                 for c in context_chunks[:8]
             )
 
@@ -145,7 +163,7 @@ C. {q.get('option_c', '')}
 D. {q.get('option_d', '')}
 Đáp án hiện tại: {q.get('correct_answer', '')}
 Giải thích: {q.get('explanation', '')}
-Trang nguồn: {q.get('source_page', 'N/A')}
+Nguồn: File {q.get('source_file', 'N/A')} | Trang {q.get('source_page', 'N/A')}
 ⚠️ Lỗi được chuyên gia kiểm duyệt chỉ ra: {issue}
 """
 

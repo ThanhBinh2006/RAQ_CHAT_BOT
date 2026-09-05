@@ -150,6 +150,7 @@ export interface QuizQuestion {
   correct_answer: "A" | "B" | "C" | "D";
   explanation?: string;
   source_page?: number;
+  source_file?: string;
 }
 
 export interface Quiz {

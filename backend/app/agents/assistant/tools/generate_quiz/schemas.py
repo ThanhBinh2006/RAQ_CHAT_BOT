@@ -16,6 +16,7 @@ class DraftQuestion(BaseModel):
     correct_answer: Literal["A", "B", "C", "D"] = Field(description="Đáp án đúng")
     explanation: Optional[str] = Field(default=None, description="Giải thích đáp án")
     source_page: Optional[int] = Field(default=None, description="Số trang nguồn")
+    source_file: Optional[str] = Field(default=None, description="Tên file tài liệu nguồn (ví dụ: giao_trinh.pdf)")
 
 
 class DraftQuestionBatch(BaseModel):
@@ -51,8 +52,16 @@ class SynthesizedQuestion(BaseModel):
     correct_answer: Literal["A", "B", "C", "D"]
     explanation: Optional[str] = None
     source_page: Optional[int] = None
+    source_file: Optional[str] = None
 
 
 class SynthesizedBatch(BaseModel):
     """Finalized batch of questions from the Synthesizer."""
     questions: List[SynthesizedQuestion]
+
+
+class QuizBatchPlan(BaseModel):
+    """Batch plan containing aspect hints for each batch."""
+    aspect_hints: List[str] = Field(
+        description="Danh sách các khía cạnh kiến thức trọng tâm riêng biệt cho từng batch, đúng số lượng batch yêu cầu"
+    )

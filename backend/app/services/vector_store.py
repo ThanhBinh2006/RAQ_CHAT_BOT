@@ -54,19 +54,23 @@ async def _get_query_embedding(query: str,embedding_model:str=None, api_key: Opt
     raise ValueError("SYSTEM_DEFAUT_EMBEDDING_KEY or DEFAULT_MODEL là bắt buộc cho query embedding")
 
 
-async def _generate_hypothetical_answers(query: str,llm_model:str=None, api_key: Optional[str] = None) -> List[str]:
+async def _generate_hypothetical_answers(
+    query: str,
+    llm_model: str = None,
+    api_key: Optional[str] = None,
+    num_answers: int = 2,
+    aspect_hint: Optional[str] = None,
+) -> List[str]:
     """
     Kỹ thuật HyDE (Hypothetical Document Embeddings):
-    Dùng DeepSeek V4 Pro sinh 4 câu/đoạn TRẢ LỜI giả định (2 Tiếng Việt, 2 Tiếng Anh)
-    trước khi tìm kiếm vector.
+    Dùng LLM sinh num_answers câu/đoạn TRẢ LỜI giả định ngắn gọn
+    trước khi tìm kiếm vector. Có thể định hướng theo aspect_hint.
     """
     if settings.USE_MOCK_LLM:
         return [
-            f"Khái niệm: {query} là một kiến thức trọng tâm trong tài liệu.",
+            f"Khái niệm: {query} là một kiến thức trọng tâm trong tài liệu. {aspect_hint or ''}",
             f"Về nguyên lý hoạt động, {query} được tổ chức theo cấu trúc chuẩn.",
-            f"Definition: {query} is a fundamental concept in computing.",
-            f"In networking systems, {query} plays an essential role.",
-        ]
+        ][:num_answers]
 
     try:
         from app.llm.llm_factory import get_llm, _detect_provider
@@ -75,15 +79,18 @@ async def _generate_hypothetical_answers(query: str,llm_model:str=None, api_key:
         provider = _detect_provider(llm_model) if llm_model else "default"
         api_keys_dict = {provider: api_key} if api_key else {}
         llm = get_llm(llm_model, api_keys_dict, temperature=0.3)
-        prompt = f"""Bạn là một chuyên gia RAG (Hypothetical Document Embeddings - HyDE).
-Nhiệm vụ: Dựa vào câu hỏi dưới đây của người dùng, hãy viết ra đúng 4 câu/đoạn TRẢ LỜI giả định ngắn gọn (mỗi câu 1-2 dòng) có thể xuất hiện trong tài liệu hoặc giáo trình để giải đáp cho câu hỏi này:
-- 2 câu/đoạn TRẢ LỜI bằng TIẾNG VIỆT (chứa định nghĩa, từ khóa học thuật tiếng Việt)
-- 2 câu/đoạn TRẢ LỜI bằng TIẾNG ANH (chứa thuật ngữ chuyên ngành tiếng Anh tương ứng)
 
-Câu hỏi gốc: "{query}"
+        aspect_text = f"\n🎯 Góc độ/Khía cạnh cần tập trung: {aspect_hint}" if aspect_hint else ""
+
+        prompt = f"""Bạn là một chuyên gia RAG (Hypothetical Document Embeddings - HyDE).
+Nhiệm vụ: Dựa vào chủ đề/câu hỏi dưới đây, hãy viết ra đúng {num_answers} đoạn TRẢ LỜI hoặc NỘI DUNG giả định ngắn gọn (mỗi đoạn 1-2 câu, chứa các từ khóa học thuật/chuyên môn trọng tâm) có thể xuất hiện trong tài liệu hoặc giáo trình để phục vụ tìm kiếm:{aspect_text}
+
+Chủ đề/Câu hỏi: "{query}"
 
 Quy tắc xuất kết quả:
-Chỉ trả về đúng 4 dòng, mỗi dòng là một câu/đoạn trả lời giả định. Không đánh số (1, 2..), không thêm gạch đầu dòng, không có lời dẫn.
+- Chỉ trả về đúng {num_answers} dòng, mỗi dòng là một đoạn trả lời giả định.
+- Mỗi đoạn khai thác một góc nhìn khác nhau, súc tích, không lặp từ.
+- Không đánh số (1, 2..), không thêm gạch đầu dòng, không có lời dẫn.
 """
         response = await llm.ainvoke([HumanMessage(content=prompt)])
         content = response.content
@@ -92,7 +99,7 @@ Chỉ trả về đúng 4 dòng, mỗi dòng là một câu/đoạn trả lời 
 
         lines = [line.strip().lstrip("0123456789.-* ") for line in str(content).strip().split("\n") if line.strip()]
         answers = [a for a in lines if a and len(a) > 5]
-        return answers[:4]
+        return answers[:num_answers]
     except Exception as e:
         print(f"HyDE answers generation warning: {e}")
         return []
@@ -106,15 +113,17 @@ async def similarity_search(
     user_id: Optional[str] = None,
     top_k: int = 6,
     exclude_chunk_ids: Optional[List[str]] = None,
-    embedding_model:str=None,
+    embedding_model: str = None,
     api_key: Optional[str] = None,
-    llm_model:str=None,
+    llm_model: str = None,
     llm_api_key: Optional[str] = None,
+    num_hypothetical: int = 2,
+    aspect_hint: Optional[str] = None,
 ) -> List[dict]:
     """
     Perform HyDE (Hypothetical Document Embeddings) cosine similarity search:
-    1. Generate 4 hypothetical answers (2 Vietnamese, 2 English) using LLM key.
-    2. Embed the original query + all 4 hypothetical answers using Embedding key.
+    1. Generate num_hypothetical answers oriented by aspect_hint using LLM key.
+    2. Embed the original query + hypothetical answers using Embedding key.
     3. Search pgvector for each embedding (excluding exclude_chunk_ids if provided).
     4. Deduplicate retrieved chunks by ID, taking the maximum similarity score.
     5. Return top_k most relevant unique chunks.
@@ -122,10 +131,18 @@ async def similarity_search(
     if not library_id:
         return []
 
-    # 1. Sinh 4 câu trả lời giả định (2 Tiếng Việt, 2 Tiếng Anh)
-    hypothetical_answers = await _generate_hypothetical_answers(query,llm_model=llm_model, api_key=llm_api_key)
+    # 1. Sinh các câu trả lời giả định theo aspect_hint (mặc định 2 câu để tiết kiệm token)
+    hypothetical_answers = []
+    if num_hypothetical > 0:
+        hypothetical_answers = await _generate_hypothetical_answers(
+            query,
+            llm_model=llm_model,
+            api_key=llm_api_key,
+            num_answers=num_hypothetical,
+            aspect_hint=aspect_hint,
+        )
     search_texts = [query] + hypothetical_answers
-    print(f"🔍 HyDE Search: Truy vấn gốc + {len(hypothetical_answers)} câu trả lời giả định:")
+    print(f"🔍 HyDE Search: Truy vấn gốc + {len(hypothetical_answers)} câu trả lời giả định (aspect: {aspect_hint or 'tổng quan'}):")
     for idx, ans in enumerate(search_texts):
         print(f"   [{idx}] {ans}")
 
@@ -143,36 +160,38 @@ async def similarity_search(
 
     for text_query in search_texts:
         try:
-            query_embedding = await _get_query_embedding(text_query,embedding_model=embedding_model, api_key=api_key)
+            query_embedding = await _get_query_embedding(text_query, embedding_model=embedding_model, api_key=api_key)
             embedding_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
 
-            conditions = ["library_id = CAST(:library_id AS uuid)"]
+            conditions = ["dc.library_id = CAST(:library_id AS uuid)"]
             params = {
                 "embedding": embedding_str,
                 "library_id": library_id,
                 "top_k": top_k,
             }
             if user_id:
-                conditions.append("user_id = CAST(:user_id AS uuid)")
+                conditions.append("dc.user_id = CAST(:user_id AS uuid)")
                 params["user_id"] = user_id
 
             if valid_exclude_ids:
                 cast_uuids = ", ".join(f"CAST('{uid}' AS uuid)" for uid in valid_exclude_ids)
-                conditions.append(f"id NOT IN ({cast_uuids})")
+                conditions.append(f"dc.id NOT IN ({cast_uuids})")
 
             where_clause = " AND ".join(conditions)
 
             sql = text(f"""
                 SELECT
-                    id,
-                    document_id,
-                    page_number,
-                    chunk_index,
-                    content,
-                    1 - (embedding <=> CAST(:embedding AS vector)) AS score
-                FROM document_chunks
+                    dc.id,
+                    dc.document_id,
+                    dc.page_number,
+                    dc.chunk_index,
+                    dc.content,
+                    d.file_name,
+                    1 - (dc.embedding <=> CAST(:embedding AS vector)) AS score
+                FROM document_chunks dc
+                LEFT JOIN documents d ON dc.document_id = d.id
                 WHERE {where_clause}
-                ORDER BY embedding <=> CAST(:embedding AS vector)
+                ORDER BY dc.embedding <=> CAST(:embedding AS vector)
                 LIMIT :top_k
             """)
 
@@ -189,6 +208,7 @@ async def similarity_search(
                     chunk_map[row_id] = {
                         "id": row_id,
                         "document_id": str(row.document_id),
+                        "file_name": getattr(row, "file_name", None) or "Tài liệu",
                         "page_number": row.page_number,
                         "chunk_index": row.chunk_index,
                         "content": row.content,
@@ -209,8 +229,12 @@ async def similarity_search(
             user_id=user_id,
             top_k=top_k,
             exclude_chunk_ids=None,
+            embedding_model=embedding_model,
             api_key=api_key,
+            llm_model=llm_model,
             llm_api_key=llm_api_key,
+            num_hypothetical=num_hypothetical,
+            aspect_hint=aspect_hint,
         )
 
     return sorted_chunks[:top_k]

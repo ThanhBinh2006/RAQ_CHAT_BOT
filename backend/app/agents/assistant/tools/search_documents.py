@@ -31,19 +31,24 @@ async def search_documents(
         query=query,
         library_id=library_id,
         user_id=user_id,
-        top_k=10,
+        top_k=6,
         embedding_model=model_config.get("embed"),
         api_key=embedding_key,
-        llm_model=model_config.get("supervisor","default"),
+        llm_model=model_config.get("supervisor", "default"),
         llm_api_key=llm_key,
+        num_hypothetical=2,
     )
 
     citations = [
-        {"page_number": c["page_number"], "document_id": c["document_id"]}
+        {
+            "page_number": c["page_number"],
+            "document_id": c["document_id"],
+            "file_name": c.get("file_name", "Tài liệu"),
+        }
         for c in chunks
     ]
     context_text = "\n\n".join(
-        f"[Trang {c['page_number']}] {c['content']}" for c in chunks
+        f"[{c.get('file_name', 'Tài liệu')} - Trang {c['page_number']}] {c['content'].strip()}" for c in chunks
     )
 
     if not context_text:

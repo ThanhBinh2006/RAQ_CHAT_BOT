@@ -40,7 +40,7 @@ Giải thích: {q.get('explanation', '')}
     # Context for verification
     context_chunks = state.get("context_chunks", [])
     context_text = "\n\n".join(
-        f"[Trang {c.get('page_number', '?')}] {c.get('content', '')}"
+        f"[{c.get('file_name', 'Tài liệu')} - Trang {c.get('page_number', '?')}] {c.get('content', '')}"
         for c in context_chunks[:6]
     )
 
