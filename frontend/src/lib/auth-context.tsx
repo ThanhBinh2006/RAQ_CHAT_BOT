@@ -4,10 +4,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 
 // ── Types ────────────────────────────────────────────────────
 export interface ApiKeys {
-  nvidia?: string;
-  nvidia_embedding?: string;
   gemini?: string;
-  groq?: string;
   openai?: string;
   anthropic?: string;
 }

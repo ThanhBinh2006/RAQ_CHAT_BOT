@@ -2,32 +2,33 @@
 
 import { useState } from "react";
 import { useAuth, ApiKeys, ModelConfig } from "@/lib/auth-context";
-import { X, Key, Cpu, Check } from "lucide-react";
+import { X, Key, Cpu, Check, ShieldCheck } from "lucide-react";
 
 interface Props {
   onClose: () => void;
 }
 
-// Available models per provider
-const PROVIDER_MODELS: Record<string, { name: string; models: string[] }> = {
-  nvidia: {
-    name: "NVIDIA NIM — DeepSeek LLM (Chat & Suy luận)",
-    models: ["deepseek-ai/deepseek-v4-pro-0813"],
-  },
+// Default models provided by system (no user API key required)
+const SYSTEM_MODELS = [
+  "deepseek-ai/deepseek-v4-pro-0813",
+  "deepseek-ai/deepseek-v4-flash-0731",
+];
+
+// BYOK Providers that users are allowed to configure
+const BYOK_PROVIDERS: Record<string, { name: string; placeholder: string; models: string[] }> = {
   gemini: {
     name: "Google Gemini",
-    models: ["gemini-2.5-flash", "gemini-1.5-pro", "gemini-1.5-flash-8b"],
-  },
-  groq: {
-    name: "Groq Cloud",
-    models: ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "gemma2-9b-it"],
+    placeholder: "Nhập Gemini API Key (AIzaSy...)",
+    models: ["gemini-2.5-flash", "gemini-3.1-pro"],
   },
   openai: {
-    name: "OpenAI",
+    name: "OpenAI / ChatGPT",
+    placeholder: "Nhập OpenAI API Key (sk-...)",
     models: ["gpt-4o", "gpt-4o-mini"],
   },
   anthropic: {
-    name: "Anthropic",
+    name: "Anthropic / Claude",
+    placeholder: "Nhập Anthropic API Key (sk-ant-...)",
     models: ["claude-3-5-sonnet-latest", "claude-3-5-haiku-latest"],
   },
 };
@@ -36,23 +37,28 @@ const ROLES = [
   { key: "supervisor", label: "Chatbot Supervisor", desc: "Agent chính điều phối" },
   { key: "generator", label: "Generator", desc: "Sinh câu hỏi nháp" },
   { key: "evaluator", label: "Evaluator", desc: "Kiểm duyệt chất lượng" },
-  { key: "synthesizer", label: "Synthesizer", desc: "Chuẩn hóa output" },
+  { key: "synthesizer", label: "Synthesizer", desc: "Chuẩn hóa & tạo lại câu hỏi" },
 ] as const;
 
 export function ApiKeySettingsModal({ onClose }: Props) {
   const { apiKeys, modelConfig, setApiKeys, setModelConfig } = useAuth();
-  const [keys, setKeys] = useState<ApiKeys>({ ...apiKeys });
+  const [keys, setKeys] = useState<ApiKeys>({
+    gemini: apiKeys.gemini,
+    openai: apiKeys.openai,
+    anthropic: apiKeys.anthropic,
+  });
   const [models, setModels] = useState<ModelConfig>({ ...modelConfig });
   const [saved, setSaved] = useState(false);
 
-  // Get all available models based on which keys are provided
-  const availableModels: string[] = [];
-  for (const [provider, config] of Object.entries(PROVIDER_MODELS)) {
+  // Available models: System default models are always available + unlocked BYOK models
+  const availableModels: string[] = [...SYSTEM_MODELS];
+  for (const [provider, config] of Object.entries(BYOK_PROVIDERS)) {
     if (keys[provider as keyof ApiKeys]) {
       availableModels.push(...config.models);
     }
   }
-  // Always include current selections
+
+  // Ensure currently selected models are included
   Object.values(models).forEach((m) => {
     if (m && !availableModels.includes(m)) availableModels.push(m);
   });
@@ -76,69 +82,59 @@ export function ApiKeySettingsModal({ onClose }: Props) {
         </div>
 
         <div className="px-6 py-5 space-y-6">
-          {/* API Keys Section */}
+          {/* System Default & Embedding Info Box */}
+          <div className="p-3 bg-[var(--bg-card)] rounded-lg border border-[var(--border-color)] text-xs space-y-1">
+            <div className="flex items-center gap-1.5 font-medium text-[var(--accent)]">
+              <ShieldCheck size={15} />
+              <span>Cấu hình Mặc định & Vector Embedding (Hệ thống quản lý)</span>
+            </div>
+            <p className="text-[var(--text-muted)]">
+              Hệ thống đã tích hợp sẵn model <strong>DeepSeek V4</strong> và công cụ trích xuất vector <strong>Embedding 2048</strong> qua server backend. Bạn có thể sử dụng ngay lập tức mà không cần cung cấp API key.
+            </p>
+          </div>
+
+          {/* BYOK API Keys Section */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-2">
               <Key size={16} className="text-[var(--accent)]" />
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">API Keys (BYOK)</h3>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Tùy chọn API Key (BYOK)</h3>
             </div>
             <p className="text-xs text-[var(--text-muted)] mb-4">
-              Nhập API key để kích hoạt model tương ứng. Key được lưu trên trình duyệt, không gửi lên server.
+              Chỉ hỗ trợ mở rộng qua <strong>Gemini</strong>, <strong>ChatGPT (OpenAI)</strong> hoặc <strong>Claude (Anthropic)</strong>. Key được lưu bảo mật trên trình duyệt của bạn.
             </p>
 
             <div className="space-y-3">
-              {Object.entries(PROVIDER_MODELS).map(([provider, config]) => (
+              {Object.entries(BYOK_PROVIDERS).map(([provider, config]) => (
                 <div key={provider}>
                   <label className="text-xs font-medium text-[var(--text-secondary)] mb-1 block">
                     {config.name}
                     {keys[provider as keyof ApiKeys] && (
-                      <span className="ml-2 text-[var(--success)]">✓ Đã nhập</span>
+                      <span className="ml-2 text-[var(--success)]">✓ Đã kích hoạt</span>
                     )}
                   </label>
                   <input
                     className="input-field text-sm"
                     type="password"
-                    placeholder={`Nhập ${config.name} API Key...`}
+                    placeholder={config.placeholder}
                     value={keys[provider as keyof ApiKeys] || ""}
                     onChange={(e) => setKeys({ ...keys, [provider]: e.target.value || undefined })}
                   />
-                  {keys[provider as keyof ApiKeys] && (
-                    <p className="text-xs text-[var(--text-muted)] mt-1">
-                      Models: {config.models.join(", ")}
-                    </p>
-                  )}
+                  <p className="text-xs text-[var(--text-muted)] mt-1">
+                    Models mở khóa: {config.models.join(", ")}
+                  </p>
                 </div>
               ))}
-
-              <div>
-                <label className="text-xs font-medium text-[var(--text-secondary)] mb-1 block">
-                  NVIDIA NIM — Nemotron Embedding (Vector 2048)
-                  {keys.nvidia_embedding && (
-                    <span className="ml-2 text-[var(--success)]">✓ Đã nhập</span>
-                  )}
-                </label>
-                <input
-                  className="input-field text-sm"
-                  type="password"
-                  placeholder="Nhập NVIDIA Embedding Key (nvidia/nemotron-3-embed-1b)..."
-                  value={keys.nvidia_embedding || ""}
-                  onChange={(e) => setKeys({ ...keys, nvidia_embedding: e.target.value || undefined })}
-                />
-                <p className="text-xs text-[var(--text-muted)] mt-1">
-                  Model: nvidia/nemotron-3-embed-1b (Dùng để trích xuất & tìm kiếm vector)
-                </p>
-              </div>
             </div>
           </div>
 
           {/* Model Assignment Section */}
           <div>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-2">
               <Cpu size={16} className="text-[var(--accent)]" />
-              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Phân bổ Model</h3>
+              <h3 className="text-sm font-semibold text-[var(--text-primary)]">Phân bổ Model cho từng vai trò</h3>
             </div>
             <p className="text-xs text-[var(--text-muted)] mb-4">
-              Gán model riêng cho từng vai trò. Cần có API key tương ứng.
+              Chọn model xử lý cho từng vai trò trong hệ thống Multi-Agent:
             </p>
 
             <div className="space-y-3">
@@ -153,15 +149,11 @@ export function ApiKeySettingsModal({ onClose }: Props) {
                     value={models[key]}
                     onChange={(e) => setModels({ ...models, [key]: e.target.value })}
                   >
-                    {availableModels.length > 0 ? (
-                      availableModels.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))
-                    ) : (
-                      <option value={models[key]}>{models[key]} (nhập key để xem thêm)</option>
-                    )}
+                    {availableModels.map((m) => (
+                      <option key={m} value={m}>
+                        {m} {SYSTEM_MODELS.includes(m) ? "(Mặc định - Miễn phí)" : ""}
+                      </option>
+                    ))}
                   </select>
                 </div>
               ))}
