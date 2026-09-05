@@ -31,7 +31,7 @@ async def search_documents(
         query=query,
         library_id=library_id,
         user_id=user_id,
-        top_k=6,
+        top_k=20,
         embedding_model=model_config.get("embed"),
         api_key=embedding_key,
         llm_model=model_config.get("supervisor", "default"),

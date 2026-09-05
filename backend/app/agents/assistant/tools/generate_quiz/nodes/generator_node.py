@@ -46,7 +46,7 @@ async def generator_node(state: QuizState) -> dict:
             query=f"Kiến thức trọng tâm: {focus}",
             library_id=state.get("library_id"),
             user_id=state.get("user_id"),
-            top_k=5,  # Tối ưu: giảm từ 10 xuống 5 chunk để tiết kiệm token gửi đi
+            top_k=20, 
             exclude_chunk_ids=used_chunk_ids,
             embedding_model=model_config.get("embed"),
             api_key=embedding_key,
