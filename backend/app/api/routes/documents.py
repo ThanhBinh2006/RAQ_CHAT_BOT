@@ -6,7 +6,7 @@ import asyncio
 from typing import Optional
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Request
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
@@ -20,11 +20,8 @@ router = APIRouter(prefix="/api/documents", tags=["documents"])
 
 @router.post("/upload", response_model=DocumentOut, status_code=201)
 async def upload_document(
-    req: Request,
     library_id: str = Form(...),
     file: UploadFile = File(...),
-    embedding_model: Optional[str] = Form(None),
-    api_key: Optional[str] = Form(None),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -72,19 +69,9 @@ async def upload_document(
     await db.commit()
     await db.refresh(doc)
 
-    # Resolve embedding model and API key at API level
-    resolved_embedding_model = (
-        embedding_model
-        or req.headers.get("X-Embed-Model")
-        or settings.DEFAULT_EMBEDDING_MODEL
-    )
-    resolved_api_key = (
-        api_key
-        or req.headers.get("X-Embedding-Key")
-        or req.headers.get("X-Default-Key")
-        or settings.SYSTEM_DEFAULT_EMBEDDING_KEY
-        or settings.SYSTEM_DEFAULT_API_KEY
-    )
+    # Embedding model and key are strictly managed by system settings (user cannot override)
+    resolved_embedding_model = settings.DEFAULT_EMBEDDING_MODEL
+    resolved_api_key = settings.SYSTEM_DEFAULT_EMBEDDING_KEY or settings.SYSTEM_DEFAULT_API_KEY
 
     # Trigger background ingestion
     asyncio.create_task(

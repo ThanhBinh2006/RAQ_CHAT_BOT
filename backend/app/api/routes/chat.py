@@ -44,21 +44,21 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         elif role == "system":
             lc_messages.append(SystemMessage(content=content))
 
-    # Parse headers for API keys and Model configs
-    api_keys = {}
-    for provider in ["default", "gemini", "openai", "anthropic"]:
+    # Parse headers for API keys (User is ONLY allowed to provide gemini, openai, anthropic keys)
+    user_api_keys = {}
+    for provider in ["gemini", "openai", "anthropic"]:
         val = req.headers.get(f"X-{provider.capitalize()}-Key")
         if val:
-            api_keys[provider] = val
+            user_api_keys[provider] = val
 
-    default_api_keys = {
+    final_api_keys = {
+        "gemini": user_api_keys.get("gemini"),
+        "openai": user_api_keys.get("openai"),
+        "anthropic": user_api_keys.get("anthropic"),
+        # Default and embedding keys are strictly system-only; user cannot touch or override them
         "default": settings.SYSTEM_DEFAULT_API_KEY,
         "default_embed": settings.SYSTEM_DEFAULT_EMBEDDING_KEY,
-        "gemini": None,
-        "openai": None,
-        "anthropic": None,
     }
-    final_api_keys = {**default_api_keys, **api_keys}
 
     model_config = {}
     for role_name in ["supervisor", "generator", "evaluator", "synthesizer"]:
@@ -71,9 +71,13 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         "generator": settings.DEFAULT_CHAT_MODEL,
         "evaluator": settings.DEFAULT_CHAT_MODEL,
         "synthesizer": settings.DEFAULT_CHAT_MODEL,
-        "embed":settings.DEFAULT_EMBEDDING_MODEL
     }
-    final_model_config = {**default_model_config, **model_config}
+    final_model_config = {
+        **default_model_config,
+        **model_config,
+        # Embedding model is strictly system-only; user cannot touch or override it
+        "embed": settings.DEFAULT_EMBEDDING_MODEL,
+    }
 
     # Initialize graph
     graph = build_assistant_graph()
