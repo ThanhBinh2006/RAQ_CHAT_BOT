@@ -12,7 +12,7 @@ async def generator_node(state: QuizState) -> dict:
     Generate a batch of draft quiz questions based on document context.
     If there's rejection feedback from the evaluator, incorporate it.
     """
-    from app.services.vector_store import similarity_search
+    from app.services.vector_store import similarity_search, map_model_to_key
     from app.llm.llm_factory import get_llm
 
     num_needed = min(
@@ -32,9 +32,10 @@ async def generator_node(state: QuizState) -> dict:
     if state.get("retry_count", 0) > 0 and state.get("context_chunks"):
         chunks = state["context_chunks"]
     else:
-        api_keys = state.get("api_keys") or {}
-        embedding_key = api_keys.get("nvidia_embedding") or api_keys.get("nvidia") or api_keys.get("gemini")
-        llm_key = api_keys.get("nvidia") or api_keys.get("gemini")
+        api_keys = state.get("api_keys", {})
+        model_config=state.get("model_config",{})
+        embedding_key = api_keys.get("default_embed")
+        llm_key = map_model_to_key(model_config.get("supervisor","default"),api_keys)
 
         chunks = await similarity_search(
             query=f"Kiến thức trọng tâm: {focus}",
@@ -42,7 +43,9 @@ async def generator_node(state: QuizState) -> dict:
             user_id=state.get("user_id"),
             top_k=10,
             exclude_chunk_ids=used_chunk_ids,
+            embedding_model=model_config.get("embed"),
             api_key=embedding_key,
+            llm_model=model_config.get("supervisor","default"),
             llm_api_key=llm_key,
         )
 
@@ -120,7 +123,7 @@ Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác
         }
 
     # Real mode
-    generator_model = (state.get("model_config") or {}).get("generator", settings.DEFAULT_CHAT_MODEL)
+    generator_model = (state.get("model_config") or {}).get("generator",None)
     llm = get_llm(
         generator_model,
         state.get("api_keys") or {},
@@ -152,7 +155,7 @@ Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác
             draft_questions = parsed.get("questions", [])
         except (ValueError, json.JSONDecodeError):
             draft_questions = []
-
+    print(draft_questions)
     return {
         "draft_questions": draft_questions,
         "context_chunks": chunks,

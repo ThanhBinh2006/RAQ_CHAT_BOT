@@ -18,7 +18,6 @@ async def generate_quiz(
     'sinh câu hỏi ôn tập', kèm chủ đề trọng tâm nếu có."""
 
     from .subgraph import quiz_subgraph
-    from app.core.config import settings
 
     n = min(num_questions, 100)
 
@@ -37,12 +36,7 @@ async def generate_quiz(
         "eval_feedback": None,
         "eval_details": None,
         "accepted_questions": [],
-        "model_config": state.get("model_config") or {
-            "supervisor": settings.DEFAULT_CHAT_MODEL,
-            "generator": settings.DEFAULT_CHAT_MODEL,
-            "evaluator": settings.DEFAULT_CHAT_MODEL,
-            "synthesizer": settings.DEFAULT_CHAT_MODEL,
-        },
+        "model_config": state.get("model_config"),
         "api_keys": state.get("api_keys") or {},
     })
 

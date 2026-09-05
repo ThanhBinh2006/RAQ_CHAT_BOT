@@ -12,12 +12,13 @@ class ModelConfig(TypedDict):
     generator: str       # Model for quiz generator node
     evaluator: str       # Model for quiz evaluator node
     synthesizer: str     # Model for quiz synthesizer node
-
+    embed:str
 
 class ApiKeys(TypedDict, total=False):
     """User BYOK API keys by provider."""
+    default: str
+    default_embed:str
     gemini: str
-    groq: str
     openai: str
     anthropic: str
 

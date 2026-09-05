@@ -24,15 +24,13 @@ class Settings(BaseSettings):
     JWT_EXPIRE_MINUTES: int = 1440  # 24 hours
 
     # ── System Cloud API Keys ────────────────────────────────
-    SYSTEM_NVIDIA_API_KEY: Optional[str] = None
-    SYSTEM_NVIDIA_EMBEDDING_KEY: Optional[str] = None
-    SYSTEM_GEMINI_API_KEY: Optional[str] = None
-    SYSTEM_GROQ_API_KEY: Optional[str] = None
+    SYSTEM_DEFAULT_API_KEY: Optional[str] = None
+    SYSTEM_DEFAULT_EMBEDDING_KEY: Optional[str] = None
+    SYSTEM_PROVIDER:Optional[str]=None
 
     # ── Default Models ───────────────────────────────────────
-    DEFAULT_CHAT_MODEL: str = "deepseek-ai/deepseek-v4-pro-0813"
-    DEFAULT_EMBEDDING_MODEL: str = "nvidia/nemotron-3-embed-1b"
-
+    DEFAULT_CHAT_MODEL: str
+    DEFAULT_EMBEDDING_MODEL: str
     # ── Mock Mode ────────────────────────────────────────────
     USE_MOCK_LLM: bool = True
 

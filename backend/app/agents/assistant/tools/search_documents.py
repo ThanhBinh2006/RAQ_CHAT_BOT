@@ -16,12 +16,13 @@ async def search_documents(
     câu hỏi kiến thức của người dùng. LUÔN dùng tool này khi người dùng hỏi về
     nội dung tài liệu, nhờ giải thích, tóm tắt, hoặc tra cứu thông tin cụ thể."""
 
-    from app.services.vector_store import similarity_search
+    from app.services.vector_store import similarity_search,map_model_to_key
 
     # Lấy key riêng cho Embedding và LLM nếu người dùng cung cấp (BYOK)
     api_keys = state.get("api_keys", {})
-    embedding_key = api_keys.get("nvidia_embedding") or api_keys.get("nvidia") or api_keys.get("gemini")
-    llm_key = api_keys.get("nvidia") or api_keys.get("gemini")
+    model_config=state.get("model_config",{})
+    embedding_key = api_keys.get("default_embed")
+    llm_key = map_model_to_key(model_config.get("supervisor","default"),api_keys)
 
     library_id = state.get("library_id")
     user_id = state.get("user_id")
@@ -31,7 +32,9 @@ async def search_documents(
         library_id=library_id,
         user_id=user_id,
         top_k=10,
+        embedding_model=model_config.get("embed"),
         api_key=embedding_key,
+        llm_model=model_config.get("supervisor","default"),
         llm_api_key=llm_key,
     )
 

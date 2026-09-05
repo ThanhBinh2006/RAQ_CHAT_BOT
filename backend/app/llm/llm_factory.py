@@ -6,24 +6,18 @@ Includes mock mode for development without API keys.
 
 from typing import Optional, Dict
 from langchain_core.language_models import BaseChatModel
-from app.core.config import settings
 
 
 # ── Provider → Model mapping ────────────────────────────────
 PROVIDER_MAP = {
-    # NVIDIA models
-    "deepseek-ai/deepseek-v4-pro-0813": "nvidia",
-    "deepseek-v4-pro-0813": "nvidia",
-    "deepseek-ai/deepseek-v4-flash-0731": "nvidia",
-    "deepseek-v4-flash-0731": "nvidia",
+    # default models
+    "deepseek-ai/deepseek-v4-pro-0813": "default",
+    "deepseek-v4-pro-0813": "default",
+    "deepseek-ai/deepseek-v4-flash-0731": "default",
+    "deepseek-v4-flash-0731": "default",
     # Gemini models
     "gemini-2.5-flash": "gemini",
-    "gemini-1.5-pro": "gemini",
-    "gemini-1.5-flash-8b": "gemini",
-    # Groq models
-    "llama-3.3-70b-versatile": "groq",
-    "mixtral-8x7b-32768": "groq",
-    "gemma2-9b-it": "groq",
+    "gemini-3.1-pro": "gemini",
     # OpenAI models
     "gpt-4o": "openai",
     "gpt-4o-mini": "openai",
@@ -77,17 +71,13 @@ def _detect_provider(model_name: str) -> str:
         return PROVIDER_MAP[model_name]
     # Heuristic fallback
     lower = model_name.lower()
-    if "deepseek" in lower or "nvidia" in lower or "nemotron" in lower:
-        return "nvidia"
     if "gemini" in lower:
         return "gemini"
-    if "llama" in lower or "mixtral" in lower or "gemma" in lower:
-        return "groq"
     if "gpt" in lower:
         return "openai"
     if "claude" in lower:
         return "anthropic"
-    return "nvidia"  # default fallback
+    return "default"  # default fallback
 
 
 def _resolve_api_key(provider: str, api_keys: Optional[Dict[str, str]] = None) -> Optional[str]:
@@ -100,14 +90,6 @@ def _resolve_api_key(provider: str, api_keys: Optional[Dict[str, str]] = None) -
         user_key = api_keys.get(provider)
         if user_key:
             return user_key
-
-    # Fallback to system keys
-    if provider == "nvidia":
-        return settings.SYSTEM_NVIDIA_API_KEY
-    if provider == "gemini":
-        return settings.SYSTEM_GEMINI_API_KEY
-    if provider == "groq":
-        return settings.SYSTEM_GROQ_API_KEY
     return None
 
 
@@ -140,12 +122,12 @@ def get_llm(
             f"Vui lòng cung cấp key qua Settings hoặc cấu hình SYSTEM_*_API_KEY trong .env."
         )
 
-    if provider == "nvidia":
+    if provider == "default":
         from langchain_openai import ChatOpenAI
         return ChatOpenAI(
             model=model_name,
             openai_api_key=api_key,
-            openai_api_base="https://integrate.api.nvidia.com/v1",
+            openai_api_base="https://integrate.api.default.com/v1",
             temperature=temperature,
         )
 
@@ -154,14 +136,6 @@ def get_llm(
         return ChatGoogleGenerativeAI(
             model=model_name,
             google_api_key=api_key,
-            temperature=temperature,
-        )
-
-    if provider == "groq":
-        from langchain_groq import ChatGroq
-        return ChatGroq(
-            model=model_name,
-            groq_api_key=api_key,
             temperature=temperature,
         )
 

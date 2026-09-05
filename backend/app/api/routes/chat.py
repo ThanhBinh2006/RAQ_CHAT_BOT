@@ -46,12 +46,20 @@ async def chat_endpoint(request: ChatRequest, req: Request):
 
     # Parse headers for API keys and Model configs
     api_keys = {}
-    for provider in ["nvidia", "gemini", "groq", "openai", "anthropic"]:
+    for provider in ["gemini","openai", "anthropic"]:
         val = req.headers.get(f"X-{provider.capitalize()}-Key")
         if val:
             api_keys[provider] = val
-
-    val_embed = req.headers.get("X-Nvidia-Embedding-Key")
+    default_api_keys = {
+        "default": settings.SYSTEM_DEFAULT_API_KEY,
+        "default_embed": settings.SYSTEM_DEFAULT_EMBEDDING_KEY,
+        "gemini": None,
+        "openai": None,
+        "anthropic": None,
+    }
+    final_api_keys = {**default_api_keys, **api_keys}
+    
+    val_embed = settings.SYSTEM_DEFAULT_EMBEDDING_KEY
     if val_embed:
         api_keys["nvidia_embedding"] = val_embed
 
@@ -66,6 +74,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         "generator": settings.DEFAULT_CHAT_MODEL,
         "evaluator": settings.DEFAULT_CHAT_MODEL,
         "synthesizer": settings.DEFAULT_CHAT_MODEL,
+        "embed":settings.DEFAULT_EMBEDDING_MODEL
     }
     final_model_config = {**default_model_config, **model_config}
 
@@ -77,7 +86,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         "library_id": request.libraryId,
         "session_id": request.sessionId,
         "user_id": user_id,
-        "api_keys": api_keys if api_keys else {},
+        "api_keys": final_api_keys,
         "model_config": final_model_config,
     }
 

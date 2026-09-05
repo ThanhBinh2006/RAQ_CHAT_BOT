@@ -11,7 +11,7 @@ from app.core.config import settings
 from app.core.db import AsyncSessionLocal
 
 
-async def _get_query_embedding(query: str, api_key: Optional[str] = None) -> List[float]:
+async def _get_query_embedding(query: str,embedding_model:str=None, api_key: Optional[str] = None) -> List[float]:
     """
     Generate embedding for a search query.
     Uses NVIDIA Nemotron-3-Embed-1B (2048 dims) or mock mode.
@@ -31,11 +31,7 @@ async def _get_query_embedding(query: str, api_key: Optional[str] = None) -> Lis
     # 1. api_key từ người dùng (nếu có)
     # 2. SYSTEM_NVIDIA_EMBEDDING_KEY trong .env
     # 3. SYSTEM_NVIDIA_API_KEY trong .env
-    nv_key = api_key if (api_key and (api_key.startswith("nvapi-") or "nvapi" in api_key)) else (
-        settings.SYSTEM_NVIDIA_EMBEDDING_KEY or settings.SYSTEM_NVIDIA_API_KEY
-    )
-    
-    if nv_key:
+    if api_key:
         async with httpx.AsyncClient(timeout=30.0) as client:
             res = await client.post(
                 "https://integrate.api.nvidia.com/v1/embeddings",
@@ -45,7 +41,7 @@ async def _get_query_embedding(query: str, api_key: Optional[str] = None) -> Lis
                 },
                 json={
                     "input": [query],
-                    "model": settings.DEFAULT_EMBEDDING_MODEL,
+                    "model": embedding_model,
                     "input_type": "query",
                 }
             )
@@ -54,24 +50,11 @@ async def _get_query_embedding(query: str, api_key: Optional[str] = None) -> Lis
                 return data["data"][0]["embedding"]
             else:
                 print(f"NVIDIA embedding error ({res.status_code}): {res.text}")
-
-    # Fallback to Gemini if configured
-    gemini_key = api_key if (api_key and not api_key.startswith("nvapi-")) else settings.SYSTEM_GEMINI_API_KEY
-    if gemini_key:
-        import google.generativeai as genai
-        genai.configure(api_key=gemini_key)
-        result = genai.embed_content(
-            model="models/gemini-embedding-001",
-            content=query,
-            task_type="RETRIEVAL_QUERY",
-            output_dimensionality=2048
-        )
-        return result["embedding"]
-
-    raise ValueError("SYSTEM_NVIDIA_EMBEDDING_KEY hoặc user NVIDIA Embedding API key là bắt buộc cho query embedding")
+                
+    raise ValueError("SYSTEM_DEFAUT_EMBEDDING_KEY or DEFAULT_MODEL là bắt buộc cho query embedding")
 
 
-async def _generate_hypothetical_answers(query: str, api_key: Optional[str] = None) -> List[str]:
+async def _generate_hypothetical_answers(query: str,llm_model:str=None, api_key: Optional[str] = None) -> List[str]:
     """
     Kỹ thuật HyDE (Hypothetical Document Embeddings):
     Dùng DeepSeek V4 Pro sinh 4 câu/đoạn TRẢ LỜI giả định (2 Tiếng Việt, 2 Tiếng Anh)
@@ -89,8 +72,8 @@ async def _generate_hypothetical_answers(query: str, api_key: Optional[str] = No
         from app.llm.llm_factory import get_llm
         from langchain_core.messages import HumanMessage
 
-        llm_key = api_key or settings.SYSTEM_NVIDIA_API_KEY
-        llm = get_llm(settings.DEFAULT_CHAT_MODEL, {"nvidia": llm_key} if llm_key else {}, temperature=0.3)
+        llm_key = api_key
+        llm = get_llm(llm_model, {"nvidia": llm_key} if llm_key else {}, temperature=0.3)
         prompt = f"""Bạn là một chuyên gia RAG (Hypothetical Document Embeddings - HyDE).
 Nhiệm vụ: Dựa vào câu hỏi dưới đây của người dùng, hãy viết ra đúng 4 câu/đoạn TRẢ LỜI giả định ngắn gọn (mỗi câu 1-2 dòng) có thể xuất hiện trong tài liệu hoặc giáo trình để giải đáp cho câu hỏi này:
 - 2 câu/đoạn TRẢ LỜI bằng TIẾNG VIỆT (chứa định nghĩa, từ khóa học thuật tiếng Việt)
@@ -112,7 +95,10 @@ Chỉ trả về đúng 4 dòng, mỗi dòng là một câu/đoạn trả lời 
     except Exception as e:
         print(f"HyDE answers generation warning: {e}")
         return []
-
+async def map_model_to_key(model_name: str, api_keys: Optional[Dict[str, str]] = None) -> Optional[str]:
+    from app.llm.llm_factory import _resolve_api_key
+    from app.llm.llm_factory import _detect_provider
+    return _resolve_api_key(_detect_provider(model_name),api_keys)
 
 async def similarity_search(
     query: str,
@@ -120,7 +106,9 @@ async def similarity_search(
     user_id: Optional[str] = None,
     top_k: int = 6,
     exclude_chunk_ids: Optional[List[str]] = None,
+    embedding_model:str=None,
     api_key: Optional[str] = None,
+    llm_model:str=None,
     llm_api_key: Optional[str] = None,
 ) -> List[dict]:
     """
@@ -135,7 +123,7 @@ async def similarity_search(
         return []
 
     # 1. Sinh 4 câu trả lời giả định (2 Tiếng Việt, 2 Tiếng Anh)
-    hypothetical_answers = await _generate_hypothetical_answers(query, api_key=llm_api_key)
+    hypothetical_answers = await _generate_hypothetical_answers(query,llm_model=llm_model, api_key=llm_api_key)
     search_texts = [query] + hypothetical_answers
     print(f"🔍 HyDE Search: Truy vấn gốc + {len(hypothetical_answers)} câu trả lời giả định:")
     for idx, ans in enumerate(search_texts):
@@ -155,7 +143,7 @@ async def similarity_search(
 
     for text_query in search_texts:
         try:
-            query_embedding = await _get_query_embedding(text_query, api_key=api_key)
+            query_embedding = await _get_query_embedding(text_query,embedding_model=embedding_model, api_key=api_key)
             embedding_str = "[" + ",".join(str(v) for v in query_embedding) + "]"
 
             conditions = ["library_id = CAST(:library_id AS uuid)"]

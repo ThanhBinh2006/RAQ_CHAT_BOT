@@ -7,7 +7,6 @@ from langgraph.prebuilt import tools_condition
 from langchain_core.messages import SystemMessage, ToolMessage
 
 from app.llm.llm_factory import get_llm
-from app.core.config import settings
 from .state import AgentState
 from .prompts import SYSTEM_PROMPT
 from .tools.search_documents import search_documents
@@ -24,7 +23,7 @@ def agent_node(state: AgentState):
     3. Invokes LLM to decide: call tool or respond directly
     """
     model_config = state.get("model_config") or {}
-    supervisor_model = model_config.get("supervisor", settings.DEFAULT_CHAT_MODEL)
+    supervisor_model = model_config.get("supervisor")
 
     llm = get_llm(supervisor_model, state.get("api_keys") or {})
     llm_with_tools = llm.bind_tools(TOOLS)

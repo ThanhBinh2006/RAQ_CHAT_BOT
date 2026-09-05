@@ -89,7 +89,7 @@ Quy tắc: Nếu >= 80% câu hợp lệ → "approved", ngược lại → "reje
     import json
     import re
 
-    evaluator_model = (state.get("model_config") or {}).get("evaluator", settings.DEFAULT_CHAT_MODEL)
+    evaluator_model = (state.get("model_config") or {}).get("evaluator",None)
     llm = get_llm(
         evaluator_model,
         state.get("api_keys") or {},
