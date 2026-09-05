@@ -1,18 +1,17 @@
 """
 Synthesizer Node — Finalizes, standardizes, and rewrites flawed questions.
-For questions approved by evaluator, standardizes their format.
-For questions flagged as invalid/flawed by evaluator, uses the synthesizer LLM
-to rewrite and recreate them addressing the specific critique, grounded in context.
+Uses get_structured_llm with SynthesizedBatch schema to recreate invalid/flawed
+questions based on evaluator feedback, grounded in document context.
 Accumulates approved and rewritten questions into accepted_questions.
 """
 
-from typing import Optional, List, Dict, Any
-import json
-import re
+from typing import Optional, List, Dict
 import logging
 from langchain_core.messages import HumanMessage
 
 from app.agents.assistant.tools.generate_quiz.state import QuizState
+from app.agents.assistant.tools.generate_quiz.schemas import SynthesizedBatch
+from app.llm.llm_factory import get_structured_llm
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -61,60 +60,12 @@ def _standardize_question(q: dict) -> Optional[dict]:
     }
 
 
-def _parse_rewritten_response(content: str) -> List[dict]:
-    """Safely extract question list from LLM response text."""
-    if not content:
-        return []
-
-    # 1. Try markdown code block for JSON dict
-    json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
-    if json_match:
-        try:
-            parsed = json.loads(json_match.group(1))
-            if isinstance(parsed, dict):
-                return parsed.get("rewritten_questions") or parsed.get("questions") or []
-        except Exception:
-            pass
-
-    # 2. Try markdown code block for JSON list
-    list_match = re.search(r'```(?:json)?\s*(\[.*?\])\s*```', content, re.DOTALL)
-    if list_match:
-        try:
-            parsed = json.loads(list_match.group(1))
-            if isinstance(parsed, list):
-                return parsed
-        except Exception:
-            pass
-
-    # 3. Try finding outermost JSON dict
-    try:
-        start = content.index("{")
-        end = content.rindex("}") + 1
-        parsed = json.loads(content[start:end])
-        if isinstance(parsed, dict):
-            return parsed.get("rewritten_questions") or parsed.get("questions") or []
-    except Exception:
-        pass
-
-    # 4. Try finding outermost JSON list
-    try:
-        start = content.index("[")
-        end = content.rindex("]") + 1
-        parsed = json.loads(content[start:end])
-        if isinstance(parsed, list):
-            return parsed
-    except Exception:
-        pass
-
-    return []
-
-
 async def synthesizer_node(state: QuizState) -> dict:
     """
     Synthesize the batch:
     1. Separate draft questions into valid vs. flawed based on evaluator feedback.
     2. Preserve valid questions as-is (standardizing format).
-    3. Recreate / rewrite flawed questions using the synthesizer LLM, addressing evaluator critiques.
+    3. Recreate / rewrite flawed questions using get_structured_llm with SynthesizedBatch.
     4. Assemble the finalized questions in order and accumulate into accepted_questions.
     5. Advance current_batch and reset transient batch state.
     """
@@ -163,7 +114,7 @@ async def synthesizer_node(state: QuizState) -> dict:
     rewritten_by_index: Dict[int, dict] = {}
     extra_rewritten: List[dict] = []
 
-    # If there are flawed questions, rewrite them using the synthesizer LLM
+    # If there are flawed questions, rewrite them using get_structured_llm
     if flawed_items:
         if settings.USE_MOCK_LLM:
             for orig_idx, q, issue in flawed_items:
@@ -178,8 +129,6 @@ async def synthesizer_node(state: QuizState) -> dict:
                     "source_page": q.get("source_page") or 1,
                 }
         else:
-            from app.llm.llm_factory import get_llm
-
             context_text = "\n\n".join(
                 f"[Trang {c.get('page_number', '?')}] {c.get('content', '')}"
                 for c in context_chunks[:8]
@@ -215,45 +164,31 @@ Dưới đây là {len(flawed_items)} câu hỏi trắc nghiệm chưa đạt ti
 3. Mỗi câu hỏi phải có đủ 4 phương án lựa chọn: option_a, option_b, option_c, option_d.
 4. Chỉ có DUY NHẤT 1 đáp án đúng (correct_answer phải là một trong: "A", "B", "C", "D").
 5. Độ dài và văn phong các phương án phải tương đương nhau, tránh để đáp án đúng quá dài hoặc quá lộ liễu.
-6. Cung cấp giải thích ngắn gọn, rõ ràng cho đáp án đúng và kèm source_page chính xác.
-
-Trả lời theo đúng format JSON sau (CHỈ trả về JSON, không thêm bất kỳ văn bản nào khác):
-{{
-  "rewritten_questions": [
-    {{
-      "original_index": <Index gốc của câu được sửa>,
-      "question_text": "Nội dung câu hỏi đã sửa hoàn chỉnh",
-      "option_a": "Nội dung lựa chọn A",
-      "option_b": "Nội dung lựa chọn B",
-      "option_c": "Nội dung lựa chọn C",
-      "option_d": "Nội dung lựa chọn D",
-      "correct_answer": "A",
-      "explanation": "Giải thích chi tiết vì sao đáp án này đúng",
-      "source_page": 1
-    }}
-  ]
-}}"""
+6. Cung cấp giải thích ngắn gọn, rõ ràng cho đáp án đúng và kèm source_page chính xác."""
 
             try:
                 synthesizer_model = model_config.get("synthesizer") or model_config.get("supervisor")
-                llm = get_llm(synthesizer_model, api_keys, temperature=0.3)
+                llm = get_structured_llm(
+                    synthesizer_model,
+                    api_keys,
+                    schema=SynthesizedBatch,
+                    temperature=0.3,
+                )
                 response = await llm.ainvoke([HumanMessage(content=prompt)])
-                rewritten_raw = _parse_rewritten_response(response.content)
 
-                valid_orig_indices = {fi[0] for fi in flawed_items}
+                if isinstance(response, SynthesizedBatch):
+                    rewritten_raw = [q.model_dump() for q in response.questions]
+                elif isinstance(response, dict):
+                    rewritten_raw = response.get("questions") or response.get("rewritten_questions") or []
+                else:
+                    rewritten_raw = []
+
                 for i, item in enumerate(rewritten_raw):
                     std = _standardize_question(item)
                     if not std:
                         continue
-                    orig_idx = item.get("original_index")
-                    if orig_idx is not None and orig_idx in valid_orig_indices:
-                        target_idx = orig_idx
-                    elif i < len(flawed_items):
+                    if i < len(flawed_items):
                         target_idx = flawed_items[i][0]
-                    else:
-                        target_idx = None
-
-                    if target_idx is not None:
                         rewritten_by_index[target_idx] = std
                     else:
                         extra_rewritten.append(std)

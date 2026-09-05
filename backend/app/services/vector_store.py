@@ -36,7 +36,7 @@ async def _get_query_embedding(query: str,embedding_model:str=None, api_key: Opt
             res = await client.post(
                 "https://integrate.api.nvidia.com/v1/embeddings",
                 headers={
-                    "Authorization": f"Bearer {nv_key}",
+                    "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
                 },
                 json={
@@ -69,11 +69,12 @@ async def _generate_hypothetical_answers(query: str,llm_model:str=None, api_key:
         ]
 
     try:
-        from app.llm.llm_factory import get_llm
+        from app.llm.llm_factory import get_llm, _detect_provider
         from langchain_core.messages import HumanMessage
 
-        llm_key = api_key
-        llm = get_llm(llm_model, {"nvidia": llm_key} if llm_key else {}, temperature=0.3)
+        provider = _detect_provider(llm_model) if llm_model else "default"
+        api_keys_dict = {provider: api_key} if api_key else {}
+        llm = get_llm(llm_model, api_keys_dict, temperature=0.3)
         prompt = f"""Bạn là một chuyên gia RAG (Hypothetical Document Embeddings - HyDE).
 Nhiệm vụ: Dựa vào câu hỏi dưới đây của người dùng, hãy viết ra đúng 4 câu/đoạn TRẢ LỜI giả định ngắn gọn (mỗi câu 1-2 dòng) có thể xuất hiện trong tài liệu hoặc giáo trình để giải đáp cho câu hỏi này:
 - 2 câu/đoạn TRẢ LỜI bằng TIẾNG VIỆT (chứa định nghĩa, từ khóa học thuật tiếng Việt)

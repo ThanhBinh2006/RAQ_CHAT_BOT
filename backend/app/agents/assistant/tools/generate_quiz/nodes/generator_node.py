@@ -13,7 +13,6 @@ async def generator_node(state: QuizState) -> dict:
     If there's rejection feedback from the evaluator, incorporate it.
     """
     from app.services.vector_store import similarity_search, map_model_to_key
-    from app.llm.llm_factory import get_llm
 
     num_needed = min(
         state["batch_size"],
@@ -123,39 +122,27 @@ Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác
         }
 
     # Real mode
-    generator_model = (state.get("model_config") or {}).get("generator",None)
-    llm = get_llm(
+    from app.llm.llm_factory import get_structured_llm
+    from app.agents.assistant.tools.generate_quiz.schemas import DraftQuestionBatch
+    from langchain_core.messages import HumanMessage
+
+    generator_model = (state.get("model_config") or {}).get("generator", None)
+    llm = get_structured_llm(
         generator_model,
         state.get("api_keys") or {},
+        schema=DraftQuestionBatch,
         temperature=0.7,
     )
 
-    from langchain_core.messages import HumanMessage
     response = await llm.ainvoke([HumanMessage(content=prompt)])
 
-    # Parse JSON from response
-    import json
-    import re
+    if isinstance(response, DraftQuestionBatch):
+        draft_questions = [q.model_dump() for q in response.questions]
+    elif isinstance(response, dict):
+        draft_questions = response.get("questions", [])
+    else:
+        draft_questions = []
 
-    content = response.content
-    # Extract JSON from possible markdown code blocks
-    json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
-    if json_match:
-        content = json_match.group(1)
-
-    try:
-        parsed = json.loads(content)
-        draft_questions = parsed.get("questions", [])
-    except json.JSONDecodeError:
-        # Fallback: try to find JSON object in the response
-        try:
-            start = content.index("{")
-            end = content.rindex("}") + 1
-            parsed = json.loads(content[start:end])
-            draft_questions = parsed.get("questions", [])
-        except (ValueError, json.JSONDecodeError):
-            draft_questions = []
-    print(draft_questions)
     return {
         "draft_questions": draft_questions,
         "context_chunks": chunks,

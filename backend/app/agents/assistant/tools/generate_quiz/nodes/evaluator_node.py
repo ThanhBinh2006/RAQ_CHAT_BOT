@@ -84,43 +84,38 @@ Quy tắc: Nếu >= 80% câu hợp lệ → "approved", ngược lại → "reje
         }
 
     # Real mode
-    from app.llm.llm_factory import get_llm
+    from app.llm.llm_factory import get_structured_llm
+    from app.agents.assistant.tools.generate_quiz.schemas import EvaluationResult
     from langchain_core.messages import HumanMessage
-    import json
-    import re
 
-    evaluator_model = (state.get("model_config") or {}).get("evaluator",None)
-    llm = get_llm(
+    evaluator_model = (state.get("model_config") or {}).get("evaluator", None)
+    llm = get_structured_llm(
         evaluator_model,
         state.get("api_keys") or {},
+        schema=EvaluationResult,
         temperature=0.0,
     )
 
-    response = await llm.ainvoke([HumanMessage(content=prompt)])
-    content = response.content
-
-    # Parse JSON
-    json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
-    if json_match:
-        content = json_match.group(1)
-
     try:
-        parsed = json.loads(content)
-    except json.JSONDecodeError:
-        try:
-            start = content.index("{")
-            end = content.rindex("}") + 1
-            parsed = json.loads(content[start:end])
-        except (ValueError, json.JSONDecodeError):
-            # If we can't parse, approve by default to avoid infinite loops
-            return {
-                "eval_feedback": "approved",
-                "eval_details": [],
-            }
-
-    verdict = parsed.get("overall_verdict", "approved")
-    evaluations = parsed.get("evaluations", [])
-    summary = parsed.get("summary_feedback", "")
+        response = await llm.ainvoke([HumanMessage(content=prompt)])
+        if isinstance(response, EvaluationResult):
+            verdict = response.overall_verdict
+            evaluations = [e.model_dump() for e in response.evaluations]
+            summary = response.summary_feedback
+        elif isinstance(response, dict):
+            verdict = response.get("overall_verdict", "approved")
+            evaluations = response.get("evaluations", [])
+            summary = response.get("summary_feedback", "")
+        else:
+            verdict = "approved"
+            evaluations = []
+            summary = ""
+    except Exception:
+        # If any unexpected error, approve by default to avoid infinite loops
+        return {
+            "eval_feedback": "approved",
+            "eval_details": [],
+        }
 
     return {
         "eval_feedback": verdict if verdict == "approved" else summary,

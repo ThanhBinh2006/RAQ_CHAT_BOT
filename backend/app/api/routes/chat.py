@@ -46,10 +46,11 @@ async def chat_endpoint(request: ChatRequest, req: Request):
 
     # Parse headers for API keys and Model configs
     api_keys = {}
-    for provider in ["gemini","openai", "anthropic"]:
+    for provider in ["default", "gemini", "openai", "anthropic"]:
         val = req.headers.get(f"X-{provider.capitalize()}-Key")
         if val:
             api_keys[provider] = val
+
     default_api_keys = {
         "default": settings.SYSTEM_DEFAULT_API_KEY,
         "default_embed": settings.SYSTEM_DEFAULT_EMBEDDING_KEY,
@@ -58,10 +59,6 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         "anthropic": None,
     }
     final_api_keys = {**default_api_keys, **api_keys}
-    
-    val_embed = settings.SYSTEM_DEFAULT_EMBEDDING_KEY
-    if val_embed:
-        api_keys["nvidia_embedding"] = val_embed
 
     model_config = {}
     for role_name in ["supervisor", "generator", "evaluator", "synthesizer"]:

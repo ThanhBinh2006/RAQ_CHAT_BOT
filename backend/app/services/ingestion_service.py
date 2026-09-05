@@ -6,7 +6,7 @@ Supports both real (Gemini text-embedding-004) and mock embedding modes.
 import uuid
 import math
 from datetime import datetime, timezone
-from typing import List
+from typing import List, Optional
 
 import fitz  # PyMuPDF
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -61,10 +61,14 @@ def _chunk_pages(pages: List[dict]) -> List[dict]:
     return all_chunks
 
 
-async def _get_embeddings(texts: List[str]) -> List[List[float]]:
+async def _get_embeddings(
+    texts: List[str],
+    embedding_model: Optional[str] = None,
+    api_key: Optional[str] = None,
+) -> List[List[float]]:
     """
     Generate embeddings for a list of texts.
-    Uses NVIDIA Nemotron-3-Embed-1B (2048 dims) or mock mode.
+    Uses the provided embedding_model and api_key, or mock mode.
     """
     if settings.USE_MOCK_LLM:
         # Mock mode: return random-ish vectors of 2048 dims (deterministic per text)
@@ -81,57 +85,44 @@ async def _get_embeddings(texts: List[str]) -> List[List[float]]:
             embeddings.append(embedding)
         return embeddings
 
-    # Real mode: Use NVIDIA Nemotron-3-Embed-1B
-    embed_key = settings.SYSTEM_NVIDIA_EMBEDDING_KEY or settings.SYSTEM_NVIDIA_API_KEY
-    if embed_key:
-        import httpx
-        all_embeddings = []
-        batch_size = 32
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            for i in range(0, len(texts), batch_size):
-                batch = texts[i:i + batch_size]
-                res = await client.post(
-                    "https://integrate.api.nvidia.com/v1/embeddings",
-                    headers={
-                        "Authorization": f"Bearer {embed_key}",
-                        "Content-Type": "application/json",
-                    },
-                    json={
-                        "input": batch,
-                        "model": settings.DEFAULT_EMBEDDING_MODEL,
-                        "input_type": "passage",
-                    }
-                )
-                if res.status_code == 200:
-                    data = res.json()
-                    # data["data"] sorted by index
-                    sorted_items = sorted(data["data"], key=lambda x: x["index"])
-                    all_embeddings.extend([item["embedding"] for item in sorted_items])
-                else:
-                    raise ValueError(f"NVIDIA Ingestion embedding error ({res.status_code}): {res.text}")
-        return all_embeddings
+    # Real mode
+    if not api_key:
+        raise ValueError("API key is required for embedding generation")
 
-    # Fallback to Gemini if configured
-    if settings.SYSTEM_GEMINI_API_KEY:
-        import google.generativeai as genai
-        genai.configure(api_key=settings.SYSTEM_GEMINI_API_KEY)
-        all_embeddings = []
-        batch_size = 100
+    import httpx
+    all_embeddings = []
+    batch_size = 32
+    async with httpx.AsyncClient(timeout=60.0) as client:
         for i in range(0, len(texts), batch_size):
             batch = texts[i:i + batch_size]
-            result = genai.embed_content(
-                model="models/gemini-embedding-001",
-                content=batch,
-                task_type="RETRIEVAL_DOCUMENT",
-                output_dimensionality=2048
+            res = await client.post(
+                "https://integrate.api.nvidia.com/v1/embeddings",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "input": batch,
+                    "model": embedding_model,
+                    "input_type": "passage",
+                }
             )
-            all_embeddings.extend(result["embedding"])
-        return all_embeddings
+            if res.status_code == 200:
+                data = res.json()
+                # data["data"] sorted by index
+                sorted_items = sorted(data["data"], key=lambda x: x["index"])
+                all_embeddings.extend([item["embedding"] for item in sorted_items])
+            else:
+                raise ValueError(f"Ingestion embedding error ({res.status_code}): {res.text}")
+    return all_embeddings
 
-    raise ValueError("SYSTEM_NVIDIA_API_KEY is required for embedding generation")
 
-
-async def ingest_document(document_id: str, file_content: bytes):
+async def ingest_document(
+    document_id: str,
+    file_content: bytes,
+    embedding_model: Optional[str] = None,
+    api_key: Optional[str] = None,
+):
     """
     Full ingestion pipeline:
     1. Extract text pages from PDF
@@ -184,7 +175,7 @@ async def ingest_document(document_id: str, file_content: bytes):
                 texts = [c["content"] for c in batch]
 
                 # Generate embeddings for this batch
-                embeddings = await _get_embeddings(texts)
+                embeddings = await _get_embeddings(texts, embedding_model=embedding_model, api_key=api_key)
 
                 # Store chunks with embeddings
                 for j, (chunk, embedding) in enumerate(zip(batch, embeddings)):
