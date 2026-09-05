@@ -1,7 +1,7 @@
 """Pydantic schemas for chat messages."""
 
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List,Dict
 from uuid import UUID
 from datetime import datetime
 
@@ -21,7 +21,7 @@ class MessageOut(BaseModel):
     session_id: UUID
     role: str
     content: str
-    citations: Optional[List[CitationOut]] = None
+    citations: Optional[List[Dict]] = None
     quiz_id: Optional[UUID] = None
     created_at: datetime
 

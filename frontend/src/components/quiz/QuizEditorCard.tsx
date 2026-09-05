@@ -9,9 +9,10 @@ interface Props {
   libraryId: string;
   initialQuestions: QuizQuestion[];
   suggestedTitle: string;
+  onClose?: () => void;
 }
 
-export function QuizEditorCard({ libraryId, initialQuestions, suggestedTitle }: Props) {
+export function QuizEditorCard({ libraryId, initialQuestions, suggestedTitle, onClose }: Props) {
   const [title, setTitle] = useState(suggestedTitle);
   const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions);
   const [saving, setSaving] = useState(false);
@@ -133,6 +134,12 @@ export function QuizEditorCard({ libraryId, initialQuestions, suggestedTitle }: 
         <button onClick={handleSave} disabled={saving} className="btn-primary text-xs">
           <Save size={14} /> {saving ? "Đang lưu..." : "Lưu vào Database"}
         </button>
+
+        {onClose && (
+          <button onClick={onClose} type="button" className="btn-secondary text-xs">
+            Quay lại chat
+          </button>
+        )}
 
         {savedId && (
           <button onClick={() => setShowPdfExport(true)} className="btn-secondary text-xs">

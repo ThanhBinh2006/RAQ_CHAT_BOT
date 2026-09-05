@@ -4,7 +4,7 @@ Supports both real embedding (Gemini) and mock mode.
 """
 
 import uuid
-from typing import List, Optional
+from typing import List, Optional, Dict
 from sqlalchemy import text
 
 from app.core.config import settings
@@ -96,10 +96,9 @@ Chỉ trả về đúng 4 dòng, mỗi dòng là một câu/đoạn trả lời 
     except Exception as e:
         print(f"HyDE answers generation warning: {e}")
         return []
-async def map_model_to_key(model_name: str, api_keys: Optional[Dict[str, str]] = None) -> Optional[str]:
-    from app.llm.llm_factory import _resolve_api_key
-    from app.llm.llm_factory import _detect_provider
-    return _resolve_api_key(_detect_provider(model_name),api_keys)
+def map_model_to_key(model_name: str, api_keys: Optional[Dict[str, str]] = None) -> Optional[str]:
+    from app.llm.llm_factory import _resolve_api_key, _detect_provider
+    return _resolve_api_key(_detect_provider(model_name), api_keys)
 
 async def similarity_search(
     query: str,

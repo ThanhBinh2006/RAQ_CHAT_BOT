@@ -72,6 +72,16 @@ export interface Session {
   updated_at: string;
 }
 
+export interface ChatMessageItem {
+  id: string;
+  session_id: string;
+  role: "user" | "assistant";
+  content: string;
+  citations?: any;
+  quiz_id?: string | null;
+  created_at: string;
+}
+
 export const sessionApi = {
   list: (libraryId: string) => apiFetch<Session[]>(`/api/libraries/${libraryId}/sessions`),
   create: (libraryId: string, title?: string) =>
@@ -81,6 +91,8 @@ export const sessionApi = {
     }),
   delete: (libraryId: string, sessionId: string) =>
     apiFetch(`/api/libraries/${libraryId}/sessions/${sessionId}`, { method: "DELETE" }),
+  getMessages: (libraryId: string, sessionId: string) =>
+    apiFetch<ChatMessageItem[]>(`/api/libraries/${libraryId}/sessions/${sessionId}/messages`),
 };
 
 // ── Document API ────────────────────────────────────────────

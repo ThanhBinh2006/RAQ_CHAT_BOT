@@ -8,15 +8,16 @@ interface Props {
   libraryId: string;
   activeSessionId: string | null;
   onSelectSession: (id: string | null) => void;
+  refreshKey?: number;
 }
 
-export function SessionList({ libraryId, activeSessionId, onSelectSession }: Props) {
+export function SessionList({ libraryId, activeSessionId, onSelectSession, refreshKey }: Props) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     sessionApi.list(libraryId).then(setSessions).catch(console.error);
-  }, [libraryId]);
+  }, [libraryId, refreshKey]);
 
   const handleCreate = async () => {
     setCreating(true);

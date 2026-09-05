@@ -11,6 +11,11 @@ from app.core.config import settings
 
 router = APIRouter()
 
+from uuid import UUID, uuid4
+from datetime import datetime, timezone
+from app.core.db import AsyncSessionLocal
+from app.db.models import ChatMessage, ChatSession
+
 class ChatRequest(BaseModel):
     messages: List[Dict[str, Any]]
     libraryId: Optional[str] = None
@@ -19,7 +24,7 @@ class ChatRequest(BaseModel):
 @router.post("/chat")
 async def chat_endpoint(request: ChatRequest, req: Request):
     """
-    Vercel AI SDK compatible streaming endpoint.
+    Vercel AI SDK compatible streaming endpoint with DB persistence.
     """
     # Extract user_id from JWT Authorization header
     user_id = None
@@ -28,8 +33,16 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         token = auth_header.split(" ")[1]
         user_id = decode_access_token(token)
 
+    session_uuid: Optional[UUID] = None
+    if request.sessionId:
+        try:
+            session_uuid = UUID(request.sessionId)
+        except Exception:
+            session_uuid = None
+
     # Convert Vercel AI messages to LangChain messages
     lc_messages = []
+    latest_user_text = ""
     for m in request.messages:
         role = m.get("role")
         content = m.get("content", "")
@@ -38,11 +51,40 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             content = "".join([p.get("text", "") for p in parts if isinstance(p, dict) and p.get("type") == "text"])
 
         if role == "user":
+            latest_user_text = content
             lc_messages.append(HumanMessage(content=content))
         elif role == "assistant":
-            lc_messages.append(AIMessage(content=content))
+            # Bỏ tag metadata nếu có trong tin nhắn cũ để LLM không bị nhiễu
+            clean_content = content
+            idx = clean_content.find("<!--METADATA_START-->")
+            if idx != -1:
+                clean_content = clean_content[:idx].strip()
+            lc_messages.append(AIMessage(content=clean_content))
         elif role == "system":
             lc_messages.append(SystemMessage(content=content))
+
+    # Lưu tin nhắn của User vào DB
+    if session_uuid and latest_user_text:
+        try:
+            async with AsyncSessionLocal() as db:
+                user_msg = ChatMessage(
+                    id=uuid4(),
+                    session_id=session_uuid,
+                    role="user",
+                    content=latest_user_text,
+                )
+                db.add(user_msg)
+
+                # Tự động cập nhật tiêu đề session theo câu hỏi đầu tiên
+                chat_sess = await db.get(ChatSession, session_uuid)
+                if chat_sess:
+                    if not chat_sess.title or chat_sess.title == "Đoạn chat mới":
+                        clean_title = latest_user_text.strip().replace("\n", " ")
+                        chat_sess.title = (clean_title[:35] + "...") if len(clean_title) > 35 else clean_title
+                    chat_sess.updated_at = datetime.now(timezone.utc)
+                await db.commit()
+        except Exception as e:
+            print(f"Error saving user message to DB: {e}")
 
     # Parse headers for API keys (User is ONLY allowed to provide gemini, openai, anthropic keys)
     user_api_keys = {}
@@ -136,5 +178,53 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             chunk = word if i == len(words) - 1 else word + " "
             yield chunk
             await asyncio.sleep(0.015)
+
+        # 4. Gửi kèm quiz_draft và citations nếu có để Frontend render card tương ứng
+        quiz_draft = final_state.get("quiz_draft")
+        citations = final_state.get("citations")
+        meta_json_str = ""
+        if quiz_draft or citations:
+            meta: Dict[str, Any] = {}
+            if quiz_draft:
+                meta["quiz_draft"] = quiz_draft
+            if citations:
+                meta["citations"] = citations
+
+            def serialize_meta(val: Any) -> Any:
+                if hasattr(val, "model_dump"):
+                    return val.model_dump()
+                if hasattr(val, "dict"):
+                    return val.dict()
+                if isinstance(val, list):
+                    return [serialize_meta(item) for item in val]
+                if isinstance(val, dict):
+                    return {k: serialize_meta(v) for k, v in val.items()}
+                return val
+
+            meta_json_str = json.dumps(serialize_meta(meta), ensure_ascii=False)
+            yield f"\n\n<!--METADATA_START-->{meta_json_str}<!--METADATA_END-->"
+
+        # 5. Lưu tin nhắn của Assistant vào DB
+        if session_uuid and text_to_stream:
+            try:
+                full_saved_content = text_to_stream
+                if meta_json_str:
+                    full_saved_content += f"\n\n<!--METADATA_START-->{meta_json_str}<!--METADATA_END-->"
+
+                async with AsyncSessionLocal() as db:
+                    asst_msg = ChatMessage(
+                        id=uuid4(),
+                        session_id=session_uuid,
+                        role="assistant",
+                        content=full_saved_content,
+                        citations=citations,
+                    )
+                    db.add(asst_msg)
+                    sess = await db.get(ChatSession, session_uuid)
+                    if sess:
+                        sess.updated_at = datetime.now(timezone.utc)
+                    await db.commit()
+            except Exception as e:
+                print(f"Error saving assistant message to DB: {e}")
 
     return StreamingResponse(generate_stream(), media_type="text/plain")

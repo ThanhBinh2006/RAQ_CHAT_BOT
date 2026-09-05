@@ -26,7 +26,8 @@ class Settings(BaseSettings):
     # ── System Cloud API Keys ────────────────────────────────
     SYSTEM_DEFAULT_API_KEY: Optional[str] = None
     SYSTEM_DEFAULT_EMBEDDING_KEY: Optional[str] = None
-    SYSTEM_PROVIDER:Optional[str]=None
+    SYSTEM_DEFAULT_API_BASE: str = "https://integrate.api.nvidia.com/v1"
+    SYSTEM_PROVIDER: Optional[str] = None
 
     # ── Default Models ───────────────────────────────────────
     DEFAULT_CHAT_MODEL: str

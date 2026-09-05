@@ -6,7 +6,7 @@ Includes mock mode for development without API keys.
 
 from typing import Optional, Dict
 from langchain_core.language_models import BaseChatModel
-
+from app.core.config import settings
 
 # ── Provider → Model mapping ────────────────────────────────
 PROVIDER_MAP = {
@@ -124,10 +124,11 @@ def get_llm(
 
     if provider == "default":
         from langchain_openai import ChatOpenAI
+        api_base = getattr(settings, "SYSTEM_DEFAULT_API_BASE", "https://integrate.api.nvidia.com/v1")
         return ChatOpenAI(
             model=model_name,
             openai_api_key=api_key,
-            openai_api_base="https://integrate.api.default.com/v1",
+            openai_api_base=api_base,
             temperature=temperature,
         )
 

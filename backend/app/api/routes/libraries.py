@@ -10,8 +10,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
 from app.api.deps import get_db, get_current_user
-from app.db.models import Library, ChatSession, Document, User
+from app.db.models import Library, ChatSession, ChatMessage, Document, User
 from app.schemas.library import LibraryCreate, LibraryOut, SessionCreate, SessionOut
+from app.schemas.chat import MessageOut
 
 router = APIRouter(prefix="/api/libraries", tags=["libraries"])
 
@@ -141,3 +142,23 @@ async def delete_session(
         raise HTTPException(status_code=404, detail="Không tìm thấy đoạn chat")
     await db.delete(session)
     await db.commit()
+
+
+@router.get("/{library_id}/sessions/{session_id}/messages", response_model=list[MessageOut])
+async def list_session_messages(
+    library_id: str,
+    session_id: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """List all chat messages for a given session in chronological order."""
+    session = await db.get(ChatSession, session_id)
+    if not session or session.user_id != current_user.id or str(session.library_id) != library_id:
+        raise HTTPException(status_code=404, detail="Không tìm thấy đoạn chat")
+
+    result = await db.execute(
+        select(ChatMessage)
+        .where(ChatMessage.session_id == session.id)
+        .order_by(ChatMessage.created_at.asc())
+    )
+    return result.scalars().all()

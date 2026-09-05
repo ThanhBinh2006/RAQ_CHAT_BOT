@@ -19,6 +19,7 @@ export default function LibraryPage() {
   const [library, setLibrary] = useState<Library | null>(null);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [sessionRefreshKey, setSessionRefreshKey] = useState(0);
 
   useEffect(() => {
     if (!token) {
@@ -72,12 +73,17 @@ export default function LibraryPage() {
             libraryId={libraryId}
             activeSessionId={activeSessionId}
             onSelectSession={setActiveSessionId}
+            refreshKey={sessionRefreshKey}
           />
         </div>
 
         {/* Column 3: Chat Window */}
         <div className="flex-1 flex flex-col bg-[var(--bg-primary)]">
-          <ChatWindow libraryId={libraryId} sessionId={activeSessionId} />
+          <ChatWindow
+            libraryId={libraryId}
+            sessionId={activeSessionId}
+            onMessageSent={() => setSessionRefreshKey((k) => k + 1)}
+          />
         </div>
       </div>
 
