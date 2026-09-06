@@ -34,6 +34,21 @@ async def generator_node(state: QuizState) -> dict:
     else:
         aspect_hint = f"Kiến thức trọng tâm về {focus} (đợt {batch_idx + 1})"
 
+    event_queue = state.get("event_queue")
+    total_b = state.get("total_batches") or 1
+    current_b = batch_idx + 1
+    retry_c = state.get("retry_count", 0)
+    if event_queue:
+        retry_suffix = f" (thử lại lần {retry_c})" if retry_c > 0 else ""
+        await event_queue.put({
+            "type": "tool_status",
+            "tool": "generate_quiz",
+            "phase": "generating",
+            "batch": current_b,
+            "total_batches": total_b,
+            "label": f"Đang biên soạn câu hỏi Đợt {current_b}/{total_b}{retry_suffix}...",
+        })
+
     if state.get("retry_count", 0) > 0 and state.get("context_chunks"):
         chunks = state["context_chunks"]
     else:

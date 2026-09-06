@@ -32,4 +32,5 @@ class AgentState(TypedDict):
     model_config: ModelConfig
     api_keys: ApiKeys
     citations: Optional[List[dict]]
-    quiz_draft: Optional[List[dict]]  # Result from generate_quiz tool → rendered by CopilotKit
+    quiz_draft: Optional[List[dict]]  # Result from generate_quiz tool
+    event_queue: Optional[object]     # asyncio.Queue for streaming real-time events to client

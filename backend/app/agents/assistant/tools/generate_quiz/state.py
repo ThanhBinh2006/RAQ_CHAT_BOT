@@ -34,3 +34,4 @@ class QuizState(TypedDict):
     # Model configuration (passed from parent state)
     model_config: Dict[str, str]
     api_keys: Dict[str, str]
+    event_queue: Optional[object]

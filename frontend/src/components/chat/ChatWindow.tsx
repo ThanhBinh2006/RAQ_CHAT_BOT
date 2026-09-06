@@ -13,6 +13,9 @@ import {
   BookOpen,
   FileQuestion,
   Lightbulb,
+  Search,
+  CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import { useChat } from "@ai-sdk/react";
 import { TextStreamChatTransport } from "ai";
@@ -49,40 +52,96 @@ function getHeaders(): Record<string, string> {
   return headers;
 }
 
+export interface ToolStatusEvent {
+  tool: string;
+  phase?: string;
+  label: string;
+  batch?: number;
+  total_batches?: number;
+}
+
 interface ParsedMessage {
   cleanText: string;
   quizDraft?: QuizQuestion[] | null;
-  citations?: Array<{ page_number?: number; document_id?: string }> | null;
+  citations?: Array<{ page_number?: number; document_id?: string; file_name?: string }> | null;
+  activeTool?: ToolStatusEvent | null;
+  totalTarget?: number;
 }
 
 function parseMessage(rawText: string): ParsedMessage {
+  // 1. Trích xuất các tag inline event: <!--EVENT:...-->
+  const eventRegex = /<!--EVENT:([\s\S]*?)-->/g;
+  let match;
+  let activeTool: ToolStatusEvent | null = null;
+  const batchQuestions: QuizQuestion[] = [];
+  let totalTarget: number | undefined = undefined;
+
+  while ((match = eventRegex.exec(rawText)) !== null) {
+    try {
+      const event = JSON.parse(match[1]);
+      if (event.type === "tool_status") {
+        activeTool = {
+          tool: event.tool,
+          phase: event.phase,
+          label: event.label,
+          batch: event.batch,
+          total_batches: event.total_batches,
+        };
+      } else if (event.type === "quiz_batch") {
+        if (Array.isArray(event.questions)) {
+          batchQuestions.push(...event.questions);
+        }
+        if (event.target) {
+          totalTarget = event.target;
+        }
+      }
+    } catch (e) {
+      // bỏ qua nếu event json đang stream dở dang
+    }
+  }
+
+  // 2. Loại bỏ các khối tag EVENT ra khỏi nội dung hiển thị
+  let textWithoutEvents = rawText.replace(/<!--EVENT:[\s\S]*?-->/g, "");
+
+  // 3. Trích xuất tag METADATA cuối cùng
   const startTag = "<!--METADATA_START-->";
   const endTag = "<!--METADATA_END-->";
+  const startIndex = textWithoutEvents.indexOf(startTag);
+  let cleanText = textWithoutEvents;
+  let finalQuizDraft: QuizQuestion[] | null = null;
+  let citations: Array<{ page_number?: number; document_id?: string; file_name?: string }> | null = null;
 
-  const startIndex = rawText.indexOf(startTag);
-  if (startIndex === -1) {
-    return { cleanText: rawText };
+  if (startIndex !== -1) {
+    cleanText = textWithoutEvents.substring(0, startIndex);
+    const endIndex = textWithoutEvents.indexOf(endTag, startIndex);
+    if (endIndex !== -1) {
+      const jsonStr = textWithoutEvents.substring(startIndex + startTag.length, endIndex).trim();
+      try {
+        const meta = JSON.parse(jsonStr);
+        if (meta.quiz_draft && Array.isArray(meta.quiz_draft) && meta.quiz_draft.length > 0) {
+          finalQuizDraft = meta.quiz_draft;
+        }
+        citations = meta.citations || null;
+      } catch (e) {
+        // bỏ qua lỗi parse json metadata
+      }
+    }
   }
 
-  const cleanText = rawText.substring(0, startIndex).trim();
-  const endIndex = rawText.indexOf(endTag, startIndex);
-
-  if (endIndex === -1) {
-    return { cleanText };
+  // 4. Loại bỏ các đoạn tag mở chưa đóng ở cuối chuỗi trong quá trình streaming
+  const lastCommentOpen = cleanText.lastIndexOf("<!--");
+  const lastCommentClose = cleanText.lastIndexOf("-->");
+  if (lastCommentOpen !== -1 && lastCommentOpen > lastCommentClose) {
+    cleanText = cleanText.substring(0, lastCommentOpen);
   }
 
-  const jsonStr = rawText.substring(startIndex + startTag.length, endIndex).trim();
-  try {
-    const meta = JSON.parse(jsonStr);
-    return {
-      cleanText,
-      quizDraft: meta.quiz_draft || null,
-      citations: meta.citations || null,
-    };
-  } catch (e) {
-    console.error("Failed to parse message metadata", e);
-    return { cleanText };
-  }
+  return {
+    cleanText: cleanText.trim(),
+    quizDraft: finalQuizDraft || (batchQuestions.length > 0 ? batchQuestions : null),
+    citations,
+    activeTool,
+    totalTarget,
+  };
 }
 
 interface Props {
@@ -301,12 +360,14 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
           )
         )}
 
-        {messages.map((m) => {
+        {messages.map((m, idx) => {
           const rawText =
             m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') ||
             (m as any).content ||
             '';
-          const { cleanText, quizDraft, citations } = parseMessage(rawText);
+          const { cleanText, quizDraft, citations, activeTool, totalTarget } = parseMessage(rawText);
+          const isLastAssistantMessage = m.role === 'assistant' && idx === messages.length - 1;
+          const isCurrentlyStreaming = isLastAssistantMessage && isLoading;
 
           return (
             <div
@@ -328,12 +389,74 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
                   className={`rounded-2xl px-5 py-3.5 text-sm leading-relaxed ${
                     m.role === 'user'
                       ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-tr-xs shadow-md shadow-indigo-600/15 font-normal'
-                      : 'bg-white/95 backdrop-blur-md text-slate-800 border border-slate-200/80 rounded-tl-xs shadow-sm'
+                      : 'bg-white/95 backdrop-blur-md text-slate-800 border border-slate-200/80 rounded-tl-xs shadow-sm min-w-[220px]'
                   }`}
                 >
-                  <div className="whitespace-pre-wrap leading-relaxed select-text">
-                    {cleanText}
-                  </div>
+                  {/* Hiển thị Tool Activity Banner nếu có tool chạy */}
+                  {m.role === 'assistant' && activeTool && (
+                    <div
+                      className={`mb-3 p-2.5 rounded-xl border text-xs transition-all ${
+                        isCurrentlyStreaming
+                          ? "bg-indigo-50/90 border-indigo-200 text-indigo-900 shadow-sm"
+                          : "bg-slate-50 border-slate-200/70 text-slate-600"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 font-medium">
+                          {isCurrentlyStreaming ? (
+                            <Loader2 size={14} className="text-indigo-600 animate-spin flex-shrink-0" />
+                          ) : (
+                            <CheckCircle2 size={14} className="text-emerald-600 flex-shrink-0" />
+                          )}
+                          <span className={isCurrentlyStreaming ? "font-semibold text-indigo-950" : "text-slate-700 font-medium"}>
+                            {activeTool.label}
+                          </span>
+                        </div>
+                        {activeTool.batch && activeTool.total_batches ? (
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 ${
+                            isCurrentlyStreaming
+                              ? "bg-indigo-200/90 text-indigo-800"
+                              : "bg-slate-200 text-slate-700"
+                          }`}>
+                            Đợt {activeTool.batch}/{activeTool.total_batches}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      {/* Mini progress bar cho batch quiz */}
+                      {isCurrentlyStreaming && activeTool.total_batches && activeTool.total_batches > 1 && (
+                        <div className="w-full bg-indigo-200/60 rounded-full h-1.5 overflow-hidden mt-2">
+                          <div
+                            className="bg-indigo-600 h-1.5 rounded-full transition-all duration-500 ease-out"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.max(
+                                  10,
+                                  Math.round(((activeTool.batch || 0) / activeTool.total_batches) * 100)
+                                )
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Nội dung câu trả lời văn bản */}
+                  {cleanText ? (
+                    <div className="whitespace-pre-wrap leading-relaxed select-text">
+                      {cleanText}
+                    </div>
+                  ) : (
+                    // Nếu đang stream và chưa có text phản hồi cuối
+                    isCurrentlyStreaming && (
+                      <div className="flex items-center gap-2 text-xs text-slate-500 italic py-1">
+                        <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
+                        <span>Đang xử lý và tổng hợp nội dung...</span>
+                      </div>
+                    )
+                  )}
 
                   {/* Hiển thị Citations nếu có */}
                   {citations && citations.length > 0 && (
@@ -365,6 +488,8 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
                   <QuizPreviewCard
                     questions={quizDraft}
                     onEdit={() => setEditingQuiz(quizDraft)}
+                    isGenerating={isCurrentlyStreaming}
+                    totalTarget={totalTarget}
                   />
                 </div>
               )}
@@ -372,8 +497,8 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
           );
         })}
 
-        {/* Hiệu ứng chờ trả lời (AI Thinking / Processing Indicator) */}
-        {isLoading && (
+        {/* Hiệu ứng chờ phản hồi ban đầu (chỉ khi vừa gửi tin nhắn và chưa nhận được chunk đầu tiên từ server) */}
+        {isLoading && messages[messages.length - 1]?.role === 'user' && (
           <div className="flex items-start gap-3 animate-fade-in">
             <div className="relative flex items-center justify-center">
               <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md shadow-indigo-500/20 ring-2 ring-white">
@@ -393,11 +518,11 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
                   <span className="w-2 h-2 rounded-full bg-indigo-600 animate-bounce" style={{ animationDelay: '300ms' }}></span>
                 </div>
                 <span className="text-xs font-medium text-slate-600 animate-pulse">
-                  AI đang suy nghĩ & xử lý...
+                  AI đang khởi động tác vụ...
                 </span>
               </div>
               <p className="text-[11px] text-slate-400 italic">
-                Đang đối chiếu dữ liệu tài liệu thư viện...
+                Đang phân tích yêu cầu của bạn...
               </p>
             </div>
           </div>

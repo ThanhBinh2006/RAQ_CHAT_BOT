@@ -39,6 +39,7 @@ async def generate_quiz(
         "accepted_questions": [],
         "model_config": state.get("model_config"),
         "api_keys": state.get("api_keys") or {},
+        "event_queue": state.get("event_queue"),
     })
 
     accepted = result.get("accepted_questions", [])

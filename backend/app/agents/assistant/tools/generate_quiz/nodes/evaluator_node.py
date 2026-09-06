@@ -16,6 +16,20 @@ async def evaluator_node(state: QuizState) -> dict:
     - No hallucinated content
     """
     draft_questions = state.get("draft_questions", [])
+    event_queue = state.get("event_queue")
+    batch_idx = state.get("current_batch", 0)
+    current_b = batch_idx + 1
+    total_b = state.get("total_batches") or 1
+
+    if event_queue:
+        await event_queue.put({
+            "type": "tool_status",
+            "tool": "generate_quiz",
+            "phase": "evaluating",
+            "batch": current_b,
+            "total_batches": total_b,
+            "label": f"Đang kiểm duyệt chất lượng câu hỏi Đợt {current_b}/{total_b}...",
+        })
 
     if not draft_questions:
         return {

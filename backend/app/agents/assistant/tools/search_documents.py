@@ -26,6 +26,15 @@ async def search_documents(
 
     library_id = state.get("library_id")
     user_id = state.get("user_id")
+    event_queue = state.get("event_queue")
+
+    if event_queue:
+        await event_queue.put({
+            "type": "tool_status",
+            "tool": "search_documents",
+            "phase": "searching",
+            "label": "Đang tra cứu tài liệu trong thư viện...",
+        })
 
     chunks = await similarity_search(
         query=query,
@@ -53,6 +62,15 @@ async def search_documents(
 
     if not context_text:
         context_text = "Không tìm thấy tài liệu liên quan. Vui lòng thử lại với từ khóa khác."
+
+    if event_queue:
+        count_found = len(chunks)
+        await event_queue.put({
+            "type": "tool_status",
+            "tool": "search_documents",
+            "phase": "completed",
+            "label": f"Đã tìm thấy {count_found} trích dẫn tài liệu liên quan.",
+        })
 
     return {
         "citations": citations,

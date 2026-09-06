@@ -236,6 +236,32 @@ Dưới đây là {len(flawed_items)} câu hỏi trắc nghiệm chưa đạt ti
     to_add = final_batch_questions[:remaining]
     accepted.extend(to_add)
 
+    event_queue = state.get("event_queue")
+    batch_idx = state.get("current_batch", 0)
+    current_b = batch_idx + 1
+    total_b = state.get("total_batches") or 1
+
+    if event_queue and to_add:
+        await event_queue.put({
+            "type": "quiz_batch",
+            "batch": current_b,
+            "total_batches": total_b,
+            "questions": to_add,
+            "total_so_far": len(accepted),
+            "target": num_needed,
+            "label": f"Đã tạo xong Đợt {current_b}/{total_b} (+{len(to_add)} câu)",
+        })
+        is_last = len(accepted) >= num_needed or current_b >= total_b
+        next_label = "Đang tổng hợp và hoàn tất bộ đề..." if is_last else f"Đã xong {len(accepted)}/{num_needed} câu. Chuyển sang Đợt {current_b + 1}/{total_b}..."
+        await event_queue.put({
+            "type": "tool_status",
+            "tool": "generate_quiz",
+            "phase": "batch_completed",
+            "batch": current_b,
+            "total_batches": total_b,
+            "label": next_label,
+        })
+
     return {
         "accepted_questions": accepted,
         "current_batch": state.get("current_batch", 0) + 1,

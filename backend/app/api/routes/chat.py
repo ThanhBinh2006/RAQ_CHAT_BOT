@@ -153,8 +153,41 @@ async def chat_endpoint(request: ChatRequest, req: Request):
 
     async def generate_stream():
         import asyncio
-        # 1. Chạy hoàn tất toàn bộ LangGraph ReAct agent & tools trước để có kết quả đầy đủ
-        final_state = await graph.ainvoke(state)
+        event_queue = asyncio.Queue()
+        state["event_queue"] = event_queue
+
+        async def run_agent():
+            try:
+                res = await graph.ainvoke(state)
+                await event_queue.put({"type": "__GRAPH_DONE__", "result": res})
+            except Exception as err:
+                print(f"Error executing agent graph: {err}")
+                await event_queue.put({"type": "__GRAPH_ERROR__", "error": str(err)})
+
+        agent_task = asyncio.create_task(run_agent())
+
+        final_state = None
+        while True:
+            event = await event_queue.get()
+            if not event:
+                continue
+            event_type = event.get("type")
+            if event_type == "__GRAPH_DONE__":
+                final_state = event.get("result")
+                break
+            elif event_type == "__GRAPH_ERROR__":
+                err_msg = event.get("error", "Đã xảy ra lỗi khi xử lý yêu cầu.")
+                yield f"\n\n❌ {err_msg}"
+                return
+            elif event_type in ("tool_status", "quiz_batch"):
+                event_json = json.dumps(event, ensure_ascii=False)
+                yield f"<!--EVENT:{event_json}-->\n"
+
+        await agent_task
+
+        if not final_state:
+            yield "Không thể hoàn thành xử lý yêu cầu."
+            return
 
         # 2. Lấy nội dung câu trả lời cuối cùng của Assistant
         messages = final_state.get("messages", [])

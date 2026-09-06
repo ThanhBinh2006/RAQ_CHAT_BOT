@@ -20,9 +20,29 @@ async def init_batch_plan(state: QuizState) -> dict:
     total = max(1, total)
     focus = state.get("focus_topic") or "toàn bộ nội dung tài liệu"
     num_questions = state.get("num_questions", 0)
+    event_queue = state.get("event_queue")
+
+    if event_queue:
+        await event_queue.put({
+            "type": "tool_status",
+            "tool": "generate_quiz",
+            "phase": "init",
+            "batch": 0,
+            "total_batches": total,
+            "label": f"Đang lập kế hoạch biên soạn {num_questions} câu hỏi ({total} đợt)...",
+        })
 
     if settings.USE_MOCK_LLM:
         aspect_hints = [f"Khía cạnh {i + 1}: Nội dung về {focus}" for i in range(total)]
+        if event_queue:
+            await event_queue.put({
+                "type": "tool_status",
+                "tool": "generate_quiz",
+                "phase": "plan_ready",
+                "batch": 0,
+                "total_batches": total,
+                "label": f"Đã lập kế hoạch {total} đợt câu hỏi. Bắt đầu đợt 1...",
+            })
         return {"total_batches": total, "aspect_hints": aspect_hints}
 
     try:
@@ -68,6 +88,16 @@ Nhiệm vụ: Hãy phân chia chủ đề trên thành đúng {total} góc nhìn
     except Exception as e:
         print(f"Lỗi lập kế hoạch batch aspects: {e}")
         aspect_hints = [f"Phần {i + 1}: Kiến thức trọng tâm về {focus}" for i in range(total)]
+
+    if event_queue:
+        await event_queue.put({
+            "type": "tool_status",
+            "tool": "generate_quiz",
+            "phase": "plan_ready",
+            "batch": 0,
+            "total_batches": total,
+            "label": f"Đã lập kế hoạch {total} đợt câu hỏi. Bắt đầu đợt 1...",
+        })
 
     return {
         "total_batches": total,
