@@ -58,7 +58,7 @@ services:
       - JWT_ALGORITHM=HS256
       - JWT_EXPIRE_MINUTES=1440
       - FRONTEND_URL=http://localhost:3000
-      - USE_MOCK_LLM=true
+      - USE_MOCK_LLM=false
       - DEFAULT_CHAT_MODEL=deepseek-ai/deepseek-v4-pro-0813
       - DEFAULT_EMBEDDING_MODEL=nvidia/nemotron-3-embed-1b
     env_file:
