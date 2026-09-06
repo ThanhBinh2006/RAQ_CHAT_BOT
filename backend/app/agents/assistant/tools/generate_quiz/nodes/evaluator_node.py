@@ -57,8 +57,8 @@ Giải thích: {q.get('explanation', '')}
 2. Đáp án đúng có thực sự đúng không?
 3. Các lựa chọn sai có hợp lý và không gây nhầm lẫn không?
 4. Câu hỏi có rõ ràng, không mập mờ không?
-5. Trên lệch độ dài không được quá khác nhau
-6. Không quá dễ nhận ra đáp án đúng
+5. Trên lệch độ dài các câu trả lời không được quá khác nhau, dẫn đến việc quá dễ để chọn
+6. Trong từng câu hỏi Không quá dễ nhận ra đáp án đúng
 
 Trả lời theo JSON format:
 {{

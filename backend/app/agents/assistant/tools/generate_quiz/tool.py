@@ -26,7 +26,7 @@ async def generate_quiz(
         "user_id": state.get("user_id"),
         "focus_topic": focus_topic,
         "num_questions": n,
-        "batch_size": 18,
+        "batch_size": 20,
         "total_batches": 0,
         "current_batch": 0,
         "retry_count": 0,

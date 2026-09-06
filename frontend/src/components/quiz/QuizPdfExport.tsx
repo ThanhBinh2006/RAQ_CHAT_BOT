@@ -94,21 +94,21 @@ export function QuizPdfExport({ quizId, title, questions, onClose }: Props) {
       for (let i = 0; i < questions.length; i++) {
         const q = questions[i];
 
-        // Check page break
-        if (y > 260) {
+        // Page break check (estimate height needed)
+        const qLines = doc.splitTextToSize(`Câu ${i + 1}: ${q.question_text}`, contentWidth);
+        const estimatedHeight = qLines.length * 5 + 24 + (mode === "teacher" && q.explanation ? 16 : 0);
+        if (y + estimatedHeight > 275 && y > 30) {
           doc.addPage();
           y = 20;
         }
 
         // Question text
         doc.setFont(fontName, "bold");
-        const qText = `Câu ${i + 1}: ${q.question_text}`;
-        const qLines = doc.splitTextToSize(qText, contentWidth);
+        doc.setTextColor(15, 23, 42);
         doc.text(qLines, margin, y);
         y += qLines.length * 5 + 2;
 
         // Options
-        doc.setFont(fontName, "normal");
         const options = [
           { letter: "A", text: q.option_a },
           { letter: "B", text: q.option_b },
@@ -116,21 +116,36 @@ export function QuizPdfExport({ quizId, title, questions, onClose }: Props) {
           { letter: "D", text: q.option_d },
         ];
 
+        const optX = margin + 7;
+        const optWidth = contentWidth - 7;
+
         for (const opt of options) {
-          const isCorrect = q.correct_answer === opt.letter;
-          const prefix = mode === "teacher" && isCorrect ? `[✓] ${opt.letter}.` : `     ${opt.letter}.`;
-          const optText = `${prefix} ${opt.text}`;
-          const optLines = doc.splitTextToSize(optText, contentWidth - 5);
+          const isCorrect = mode === "teacher" && q.correct_answer === opt.letter;
 
-          if (mode === "teacher" && isCorrect) {
+          if (isCorrect) {
             doc.setFont(fontName, "bold");
-          }
+            doc.setTextColor(22, 101, 52); // Dark green #166534
 
-          doc.text(optLines, margin + 5, y);
-          y += optLines.length * 5;
+            // Draw crisp vector checkmark
+            doc.saveGraphicsState();
+            doc.setDrawColor(22, 101, 52);
+            doc.setLineWidth(0.65);
+            doc.line(margin + 1, y - 0.8, margin + 2.5, y + 0.7);
+            doc.line(margin + 2.5, y + 0.7, margin + 5.2, y - 2.5);
+            doc.restoreGraphicsState();
 
-          if (mode === "teacher" && isCorrect) {
+            const optText = `${opt.letter}. ${opt.text}  [Đáp án đúng]`;
+            const optLines = doc.splitTextToSize(optText, optWidth);
+            doc.text(optLines, optX, y);
+            y += optLines.length * 5;
+            doc.setTextColor(15, 23, 42);
+          } else {
             doc.setFont(fontName, "normal");
+            doc.setTextColor(51, 65, 85); // Neutral slate #334155
+            const optText = `${opt.letter}. ${opt.text}`;
+            const optLines = doc.splitTextToSize(optText, optWidth);
+            doc.text(optLines, optX, y);
+            y += optLines.length * 5;
           }
         }
 
@@ -139,11 +154,21 @@ export function QuizPdfExport({ quizId, title, questions, onClose }: Props) {
           y += 2;
           doc.setFontSize(9.5);
           doc.setFont(fontName, "normal");
-          const expText = `💡 Giải thích: ${q.explanation}`;
-          const expLines = doc.splitTextToSize(expText, contentWidth - 10);
-          doc.text(expLines, margin + 5, y);
-          y += expLines.length * 4.5 + 2;
+          doc.setTextColor(71, 85, 105);
+
+          const expLines = doc.splitTextToSize(`Giải thích: ${q.explanation}`, contentWidth - 10);
+          const barHeight = expLines.length * 4.4;
+
+          doc.saveGraphicsState();
+          doc.setDrawColor(99, 102, 241); // Indigo #6366f1
+          doc.setLineWidth(0.8);
+          doc.line(margin + 2, y - 3, margin + 2, y + barHeight - 4);
+          doc.restoreGraphicsState();
+
+          doc.text(expLines, margin + 6, y);
+          y += barHeight + 3;
           doc.setFontSize(11);
+          doc.setTextColor(0, 0, 0);
         }
 
         y += 4;
@@ -329,7 +354,7 @@ export function QuizPdfExport({ quizId, title, questions, onClose }: Props) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-indigo-950">Tải file PDF — Bản Đáp án (Giáo viên)</p>
-                <p className="text-xs text-indigo-600/80">Kèm đánh dấu đáp án đúng [✓] và lời giải thích</p>
+                <p className="text-xs text-indigo-600/80">Kèm đánh dấu đáp án đúng và lời giải thích chi tiết</p>
               </div>
             </div>
           </button>

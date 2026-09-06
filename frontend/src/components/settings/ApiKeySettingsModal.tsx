@@ -19,7 +19,7 @@ const BYOK_PROVIDERS: Record<string, { name: string; placeholder: string; models
   gemini: {
     name: "Google Gemini",
     placeholder: "Nhập Gemini API Key (AIzaSy...)",
-    models: ["gemini-3.6-flash", "gemini-2.5-flash-lite"],
+    models: ["gemini-3.6-flash", "gemini-2.5-flash", "gemini-3.5-flash", "gemma-4-31B"],
   },
   openai: {
     name: "OpenAI / ChatGPT",
