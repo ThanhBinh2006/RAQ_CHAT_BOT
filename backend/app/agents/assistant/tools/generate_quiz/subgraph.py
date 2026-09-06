@@ -105,12 +105,27 @@ Nhiệm vụ: Hãy phân chia chủ đề trên thành đúng {total} góc nhìn
     }
 
 
+def should_continue_after_generator(state: QuizState) -> str:
+    """
+    After generator produces draft questions:
+    - If error occurred or no questions produced, stop immediately.
+    - Otherwise proceed to evaluator.
+    """
+    if state.get("error"):
+        return END
+    if not state.get("draft_questions"):
+        return END
+    return "evaluator"
+
+
 def should_continue_after_eval(state: QuizState) -> str:
     """
     After evaluation, decide whether to:
-    - Proceed to synthesizer (approved or max retries hit)
+    - Proceed to synthesizer (approved, max retries hit, or error occurred)
     - Loop back to generator (rejected, needs improvement)
     """
+    if state.get("error"):
+        return "synthesizer"
     if state.get("eval_feedback") == "approved":
         return "synthesizer"
     if state.get("retry_count", 0) >= MAX_RETRY_PER_BATCH:
@@ -121,10 +136,23 @@ def should_continue_after_eval(state: QuizState) -> str:
 def has_more_batches(state: QuizState) -> str:
     """
     After synthesizing a batch, check if we need more questions.
+    Stops immediately if:
+    1. An error occurred in any step.
+    2. We have completed all planned batches (current_batch >= total_batches).
+    3. We have reached the requested number of questions.
     """
-    if len(state.get("accepted_questions", [])) < state["num_questions"]:
-        return "generator"
-    return END
+    if state.get("error"):
+        return END
+
+    current_b = state.get("current_batch", 0)
+    total_b = state.get("total_batches", 1)
+    if current_b >= total_b:
+        return END
+
+    if len(state.get("accepted_questions", [])) >= state.get("num_questions", 0):
+        return END
+
+    return "generator"
 
 
 # ── Build the subgraph ───────────────────────────────────────
@@ -136,7 +164,11 @@ graph.add_node("synthesizer", synthesizer_node)
 
 graph.add_edge(START, "init")
 graph.add_edge("init", "generator")
-graph.add_edge("generator", "evaluator")
+graph.add_conditional_edges(
+    "generator",
+    should_continue_after_generator,
+    {"evaluator": "evaluator", END: END},
+)
 graph.add_conditional_edges(
     "evaluator",
     should_continue_after_eval,

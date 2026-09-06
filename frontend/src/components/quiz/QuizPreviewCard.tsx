@@ -43,9 +43,8 @@ export function QuizPreviewCard({ questions, onEdit, isGenerating, totalTarget }
         <button
           onClick={onEdit}
           disabled={isGenerating}
-          className={`btn-primary text-xs py-1.5 px-3 transition-all ${
-            isGenerating ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:scale-105"
-          }`}
+          className={`btn-primary text-xs py-1.5 px-3 transition-all ${isGenerating ? "opacity-50 cursor-not-allowed" : "cursor-pointer hover:scale-105"
+            }`}
           title={isGenerating ? "Vui lòng đợi AI sinh xong để lưu" : "Chỉnh sửa & Lưu đề thi"}
         >
           <Edit3 size={13} /> {isGenerating ? "Đang tạo..." : "Chỉnh sửa & Lưu"}
@@ -70,11 +69,10 @@ export function QuizPreviewCard({ questions, onEdit, isGenerating, totalTarget }
                 return (
                   <div
                     key={letter}
-                    className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-md ${
-                      isCorrect
+                    className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-md ${isCorrect
                         ? "bg-green-500/10 text-[var(--success)] border border-green-500/30"
                         : "text-[var(--text-secondary)]"
-                    }`}
+                      }`}
                   >
                     {isCorrect && <CheckCircle size={12} />}
                     <span className="font-medium">{letter}.</span>

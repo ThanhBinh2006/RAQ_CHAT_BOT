@@ -92,11 +92,10 @@ export function QuizEditorCard({ libraryId, initialQuestions, suggestedTitle, on
                 return (
                   <label
                     key={letter}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-all ${
-                      isCorrect
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md cursor-pointer transition-all ${isCorrect
                         ? "bg-green-500/10 border border-green-500/30"
                         : "bg-[var(--bg-primary)] border border-[var(--border-color)] hover:border-[var(--border-hover)]"
-                    }`}
+                      }`}
                   >
                     <input
                       type="radio"

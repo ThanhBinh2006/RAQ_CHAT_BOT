@@ -16,6 +16,9 @@ import {
   Search,
   CheckCircle2,
   Loader2,
+  ChevronDown,
+  ChevronUp,
+  FileText,
 } from "lucide-react";
 import { useChat } from "@ai-sdk/react";
 import { TextStreamChatTransport } from "ai";
@@ -142,6 +145,114 @@ function parseMessage(rawText: string): ParsedMessage {
     activeTool,
     totalTarget,
   };
+}
+
+function CitationList({
+  citations,
+}: {
+  citations: Array<{ page_number?: number; document_id?: string; file_name?: string }>;
+}) {
+  const [expanded, setExpanded] = useState(false);
+
+  // Group & deduplicate page numbers
+  const { allPagePills, totalPages } = useMemo(() => {
+    const fileMap: Record<string, Set<number>> = {};
+    const noFilePages = new Set<number>();
+
+    citations.forEach((c) => {
+      const p = c.page_number;
+      if (p !== undefined && p !== null) {
+        if (c.file_name) {
+          if (!fileMap[c.file_name]) {
+            fileMap[c.file_name] = new Set();
+          }
+          fileMap[c.file_name].add(p);
+        } else {
+          noFilePages.add(p);
+        }
+      }
+    });
+
+    const pills: Array<{ fileName?: string; page: number }> = [];
+    Object.entries(fileMap).forEach(([f, pageSet]) => {
+      Array.from(pageSet)
+        .sort((a, b) => a - b)
+        .forEach((p) => {
+          pills.push({ fileName: f, page: p });
+        });
+    });
+
+    Array.from(noFilePages)
+      .sort((a, b) => a - b)
+      .forEach((p) => {
+        pills.push({ page: p });
+      });
+
+    return { allPagePills: pills, totalPages: pills.length };
+  }, [citations]);
+
+  if (totalPages === 0) return null;
+
+  const shouldCollapse = allPagePills.length > 7;
+  const displayedPills = shouldCollapse && !expanded ? allPagePills.slice(0, 7) : allPagePills;
+  const hiddenCount = allPagePills.length - displayedPills.length;
+
+  return (
+    <div className="mt-3 pt-2.5 border-t border-slate-100">
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700">
+          <FileText size={13} className="text-indigo-600" />
+          <span>Nguồn tham khảo</span>
+          <span className="text-[11px] font-semibold text-slate-400">
+            ({totalPages} trang)
+          </span>
+        </div>
+
+        {shouldCollapse && (
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="text-[11px] font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-0.5 cursor-pointer transition-colors"
+          >
+            {expanded ? (
+              <>
+                Thu gọn <ChevronUp size={12} />
+              </>
+            ) : (
+              <>
+                Xem tất cả ({totalPages}) <ChevronDown size={12} />
+              </>
+            )}
+          </button>
+        )}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-1.5">
+        {displayedPills.map((item, i) => (
+          <span
+            key={i}
+            className="text-[11px] px-2.5 py-1 rounded-lg bg-indigo-50/90 text-indigo-700 border border-indigo-200/70 font-semibold inline-flex items-center gap-1 hover:bg-indigo-100/80 transition-colors shadow-2xs"
+            title={item.fileName ? `${item.fileName} - Trang ${item.page}` : `Trang ${item.page}`}
+          >
+            📄 Trang {item.page}
+            {item.fileName && (
+              <span className="text-[10px] text-indigo-400 font-normal truncate max-w-[100px]">
+                ({item.fileName})
+              </span>
+            )}
+          </span>
+        ))}
+
+        {shouldCollapse && !expanded && hiddenCount > 0 && (
+          <button
+            onClick={() => setExpanded(true)}
+            className="text-[11px] px-2.5 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+          >
+            +{hiddenCount} trang khác
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
 
 interface Props {
@@ -395,29 +506,51 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
                   {/* Hiển thị Tool Activity Banner nếu có tool chạy */}
                   {m.role === 'assistant' && activeTool && (
                     <div
-                      className={`mb-3 p-2.5 rounded-xl border text-xs transition-all ${
+                      className={`mb-3.5 p-3 rounded-2xl border transition-all duration-300 ${
                         isCurrentlyStreaming
-                          ? "bg-indigo-50/90 border-indigo-200 text-indigo-900 shadow-sm"
-                          : "bg-slate-50 border-slate-200/70 text-slate-600"
+                          ? "bg-gradient-to-r from-indigo-50/95 via-purple-50/80 to-indigo-50/90 border-indigo-200/90 shadow-sm shadow-indigo-100/50"
+                          : "bg-slate-50/90 border-slate-200/80 text-slate-700"
                       }`}
                     >
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2 font-medium">
-                          {isCurrentlyStreaming ? (
-                            <Loader2 size={14} className="text-indigo-600 animate-spin flex-shrink-0" />
-                          ) : (
-                            <CheckCircle2 size={14} className="text-emerald-600 flex-shrink-0" />
-                          )}
-                          <span className={isCurrentlyStreaming ? "font-semibold text-indigo-950" : "text-slate-700 font-medium"}>
-                            {activeTool.label}
-                          </span>
+                      <div className="flex items-center justify-between gap-2.5">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="relative flex items-center justify-center shrink-0">
+                            {isCurrentlyStreaming ? (
+                              <div className="w-7 h-7 rounded-xl bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 text-white flex items-center justify-center shadow-xs shadow-indigo-500/30">
+                                <Loader2 size={14} className="animate-spin" />
+                              </div>
+                            ) : (
+                              <div className="w-7 h-7 rounded-xl bg-emerald-500 text-white flex items-center justify-center shadow-xs shadow-emerald-500/30">
+                                <CheckCircle2 size={14} />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span
+                              className={`text-xs leading-snug line-clamp-1 ${
+                                isCurrentlyStreaming
+                                  ? "font-bold text-slate-900"
+                                  : "font-semibold text-slate-700"
+                              }`}
+                            >
+                              {activeTool.label}
+                            </span>
+                            {isCurrentlyStreaming && (
+                              <span className="text-[10px] text-indigo-600/80 font-medium">
+                                Hệ thống AI đang xử lý theo thời gian thực...
+                              </span>
+                            )}
+                          </div>
                         </div>
+
                         {activeTool.batch && activeTool.total_batches ? (
-                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold flex-shrink-0 ${
-                            isCurrentlyStreaming
-                              ? "bg-indigo-200/90 text-indigo-800"
-                              : "bg-slate-200 text-slate-700"
-                          }`}>
+                          <span
+                            className={`text-[10px] px-2.5 py-1 rounded-full font-bold shrink-0 tracking-wide ${
+                              isCurrentlyStreaming
+                                ? "bg-indigo-600 text-white shadow-2xs"
+                                : "bg-slate-200 text-slate-700"
+                            }`}
+                          >
                             Đợt {activeTool.batch}/{activeTool.total_batches}
                           </span>
                         ) : null}
@@ -425,19 +558,21 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
 
                       {/* Mini progress bar cho batch quiz */}
                       {isCurrentlyStreaming && activeTool.total_batches && activeTool.total_batches > 1 && (
-                        <div className="w-full bg-indigo-200/60 rounded-full h-1.5 overflow-hidden mt-2">
-                          <div
-                            className="bg-indigo-600 h-1.5 rounded-full transition-all duration-500 ease-out"
-                            style={{
-                              width: `${Math.min(
-                                100,
-                                Math.max(
-                                  10,
-                                  Math.round(((activeTool.batch || 0) / activeTool.total_batches) * 100)
-                                )
-                              )}%`,
-                            }}
-                          />
+                        <div className="mt-2.5">
+                          <div className="w-full bg-indigo-200/60 rounded-full h-1.5 overflow-hidden p-0.25">
+                            <div
+                              className="bg-gradient-to-r from-indigo-500 via-purple-500 to-indigo-600 h-full rounded-full transition-all duration-500 ease-out shadow-xs"
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  Math.max(
+                                    12,
+                                    Math.round(((activeTool.batch || 0) / activeTool.total_batches) * 100)
+                                  )
+                                )}%`,
+                              }}
+                            />
+                          </div>
                         </div>
                       )}
                     </div>
@@ -449,8 +584,8 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
                       {cleanText}
                     </div>
                   ) : (
-                    // Nếu đang stream và chưa có text phản hồi cuối
-                    isCurrentlyStreaming && (
+                    // Nếu đang stream và chưa có text phản hồi cuối VÀ chưa có activeTool
+                    isCurrentlyStreaming && !activeTool && (
                       <div className="flex items-center gap-2 text-xs text-slate-500 italic py-1">
                         <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
                         <span>Đang xử lý và tổng hợp nội dung...</span>
@@ -460,17 +595,7 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
 
                   {/* Hiển thị Citations nếu có */}
                   {citations && citations.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-2.5 border-t border-slate-100">
-                      <span className="text-[11px] font-semibold text-slate-400 mr-1">Nguồn tham khảo:</span>
-                      {citations.map((c, i) => (
-                        <span
-                          key={i}
-                          className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-50/90 text-indigo-700 border border-indigo-200/80 font-medium inline-flex items-center gap-1"
-                        >
-                          📄 Trang {c.page_number ?? "N/A"}
-                        </span>
-                      ))}
-                    </div>
+                    <CitationList citations={citations} />
                   )}
                 </div>
 

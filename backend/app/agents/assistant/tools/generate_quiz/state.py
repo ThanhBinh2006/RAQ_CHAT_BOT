@@ -35,3 +35,4 @@ class QuizState(TypedDict):
     model_config: Dict[str, str]
     api_keys: Dict[str, str]
     event_queue: Optional[object]
+    error: Optional[str]

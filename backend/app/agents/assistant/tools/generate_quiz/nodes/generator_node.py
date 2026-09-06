@@ -57,24 +57,40 @@ async def generator_node(state: QuizState) -> dict:
         embedding_key = api_keys.get("default_embed")
         llm_key = map_model_to_key(model_config.get("supervisor", "default"), api_keys)
 
-        chunks = await similarity_search(
-            query=f"Kiến thức trọng tâm: {focus}",
-            library_id=state.get("library_id"),
-            user_id=state.get("user_id"),
-            top_k=20, 
-            exclude_chunk_ids=used_chunk_ids,
-            embedding_model=model_config.get("embed"),
-            api_key=embedding_key,
-            llm_model=model_config.get("supervisor", "default"),
-            llm_api_key=llm_key,
-            num_hypothetical=2,  # Chỉ 2 câu giả định thay vì 4, tiết kiệm 50% token embedding
-            aspect_hint=aspect_hint,  # Mỗi batch 1 góc nhìn khác biệt
-        )
-
-        for c in chunks:
-            cid = c.get("id")
-            if cid and cid not in used_chunk_ids:
-                used_chunk_ids.append(cid)
+        try:
+            chunks = await similarity_search(
+                query=f"Kiến thức trọng tâm: {focus}",
+                library_id=state.get("library_id"),
+                user_id=state.get("user_id"),
+                top_k=20, 
+                exclude_chunk_ids=used_chunk_ids,
+                embedding_model=model_config.get("embed"),
+                api_key=embedding_key,
+                llm_model=model_config.get("supervisor", "default"),
+                llm_api_key=llm_key,
+                num_hypothetical=2,  # Chỉ 2 câu giả định thay vì 4, tiết kiệm 50% token embedding
+                aspect_hint=aspect_hint,  # Mỗi batch 1 góc nhìn khác biệt
+            )
+            for c in chunks:
+                cid = c.get("id")
+                if cid and cid not in used_chunk_ids:
+                    used_chunk_ids.append(cid)
+        except Exception as e:
+            print(f"Error in generator_node similarity_search: {e}")
+            if event_queue:
+                await event_queue.put({
+                    "type": "tool_status",
+                    "tool": "generate_quiz",
+                    "phase": "error",
+                    "batch": current_b,
+                    "total_batches": total_b,
+                    "label": f"Lỗi tìm kiếm tài liệu đợt {current_b}: {str(e)[:70]}. Dừng và trả về câu hỏi hiện có.",
+                })
+            return {
+                "draft_questions": [],
+                "error": f"Lỗi tìm kiếm tài liệu đợt {current_b}: {str(e)}",
+                "used_chunk_ids": used_chunk_ids,
+            }
 
     context_text = "\n\n".join(
         f"[{c.get('file_name', 'Tài liệu')} - Trang {c['page_number']}] {c['content'].strip()}" for c in chunks
@@ -198,7 +214,22 @@ Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác
             draft_questions = []
     except Exception as e:
         print(f"Error in generator_node LLM invocation: {e}")
-        draft_questions = []
+        if event_queue:
+            await event_queue.put({
+                "type": "tool_status",
+                "tool": "generate_quiz",
+                "phase": "error",
+                "batch": current_b,
+                "total_batches": total_b,
+                "label": f"Gặp sự cố ở đợt {current_b}: {str(e)[:70]}. Đang dừng và tổng hợp câu hỏi đã có...",
+            })
+        return {
+            "draft_questions": [],
+            "error": f"Lỗi tạo câu hỏi đợt {current_b}: {str(e)}",
+            "context_chunks": chunks,
+            "used_chunk_ids": used_chunk_ids,
+            "retry_count": state.get("retry_count", 0),
+        }
 
     # Clean any citations from question_text and options
     for q in draft_questions:
