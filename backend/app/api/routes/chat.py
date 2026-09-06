@@ -155,6 +155,10 @@ async def chat_endpoint(request: ChatRequest, req: Request):
         import asyncio
         event_queue = asyncio.Queue()
         state["event_queue"] = event_queue
+        accumulated_quiz_questions: List[dict] = []
+        latest_citations: Optional[List[dict]] = None
+        error_occurred = False
+        error_detail = ""
 
         async def run_agent():
             try:
@@ -168,7 +172,13 @@ async def chat_endpoint(request: ChatRequest, req: Request):
 
         final_state = None
         while True:
-            event = await event_queue.get()
+            try:
+                event = await event_queue.get()
+            except Exception as e:
+                error_occurred = True
+                error_detail = str(e)
+                break
+
             if not event:
                 continue
             event_type = event.get("type")
@@ -176,34 +186,71 @@ async def chat_endpoint(request: ChatRequest, req: Request):
                 final_state = event.get("result")
                 break
             elif event_type == "__GRAPH_ERROR__":
-                err_msg = event.get("error", "Đã xảy ra lỗi khi xử lý yêu cầu.")
-                yield f"\n\n❌ {err_msg}"
-                return
-            elif event_type in ("tool_status", "quiz_batch"):
+                error_occurred = True
+                error_detail = event.get("error", "Đã xảy ra lỗi khi xử lý yêu cầu.")
+                break
+            elif event_type == "quiz_batch":
+                questions = event.get("questions") or []
+                if isinstance(questions, list):
+                    accumulated_quiz_questions.extend(questions)
+                event_json = json.dumps(event, ensure_ascii=False)
+                yield f"<!--EVENT:{event_json}-->\n"
+            elif event_type == "tool_status":
+                if event.get("citations"):
+                    latest_citations = event.get("citations")
                 event_json = json.dumps(event, ensure_ascii=False)
                 yield f"<!--EVENT:{event_json}-->\n"
 
-        await agent_task
+        # Đợi agent task kết thúc nếu vẫn đang chạy ngầm
+        if not agent_task.done():
+            try:
+                await asyncio.wait_for(agent_task, timeout=1.5)
+            except Exception:
+                pass
 
-        if not final_state:
-            yield "Không thể hoàn thành xử lý yêu cầu."
-            return
-
-        # 2. Lấy nội dung câu trả lời cuối cùng của Assistant
-        messages = final_state.get("messages", [])
+        # 2. Xử lý nội dung văn bản phản hồi và bộ đề trắc nghiệm
         text_to_stream = ""
-        for msg in reversed(messages):
-            # Ưu tiên lấy tin nhắn từ AI (AIMessage) có chứa nội dung
-            content_str = extract_text_content(getattr(msg, "content", ""))
-            if content_str.strip() and getattr(msg, "type", "") != "tool":
-                text_to_stream = content_str
-                break
+        quiz_draft = None
+        citations = None
 
-        if not text_to_stream and messages:
-            text_to_stream = extract_text_content(getattr(messages[-1], "content", ""))
+        if error_occurred or not final_state:
+            # ── XỬ LÝ LỖI (Bất kỳ trường hợp nào, không chỉ quiz) ──
+            if accumulated_quiz_questions:
+                text_to_stream = (
+                    f"Đã xảy ra sự cố trong quá trình xử lý: {error_detail or 'Không thể hoàn thành toàn bộ đợt sinh câu hỏi'}.\n\n"
+                    f"💡 Hệ thống đã lưu lại thành công {len(accumulated_quiz_questions)} câu hỏi trắc nghiệm đã hoàn thành trước khi gặp lỗi để bạn có thể xem lại hoặc xuất đề."
+                )
+                quiz_draft = accumulated_quiz_questions
+            else:
+                text_to_stream = f"Đã xảy ra lỗi trong quá trình xử lý yêu cầu: {error_detail or 'Hệ thống không nhận được phản hồi hợp lệ từ mô hình.'}"
+            citations = latest_citations
+        else:
+            # ── XỬ LÝ THÀNH CÔNG BÌNH THƯỜNG ──
+            messages = final_state.get("messages", [])
+            for msg in reversed(messages):
+                # Ưu tiên lấy tin nhắn từ AI (AIMessage) có chứa nội dung
+                content_str = extract_text_content(getattr(msg, "content", ""))
+                if content_str.strip() and getattr(msg, "type", "") != "tool":
+                    text_to_stream = content_str
+                    break
 
-        if not text_to_stream:
-            text_to_stream = "Không nhận được phản hồi từ mô hình."
+            if not text_to_stream and messages:
+                text_to_stream = extract_text_content(getattr(messages[-1], "content", ""))
+
+            # Lấy quiz_draft từ final_state hoặc từ các batch đã tích lũy
+            final_quiz = final_state.get("quiz_draft")
+            if final_quiz and isinstance(final_quiz, list) and len(final_quiz) > 0:
+                quiz_draft = final_quiz
+            elif accumulated_quiz_questions:
+                quiz_draft = accumulated_quiz_questions
+
+            if not text_to_stream:
+                if quiz_draft:
+                    text_to_stream = f"Đã hoàn thành biên soạn {len(quiz_draft)} câu hỏi trắc nghiệm bám sát tài liệu."
+                else:
+                    text_to_stream = "Đã hoàn thành xử lý yêu cầu."
+
+            citations = final_state.get("citations") or latest_citations
 
         # 3. Stream text mượt mà về Frontend
         words = text_to_stream.split(" ")
@@ -213,8 +260,6 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             await asyncio.sleep(0.015)
 
         # 4. Gửi kèm quiz_draft và citations nếu có để Frontend render card tương ứng
-        quiz_draft = final_state.get("quiz_draft")
-        citations = final_state.get("citations")
         meta_json_str = ""
         if quiz_draft or citations:
             meta: Dict[str, Any] = {}
@@ -237,7 +282,7 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             meta_json_str = json.dumps(serialize_meta(meta), ensure_ascii=False)
             yield f"\n\n<!--METADATA_START-->{meta_json_str}<!--METADATA_END-->"
 
-        # 5. Lưu tin nhắn của Assistant vào DB
+        # 5. LUÔN LUÔN lưu tin nhắn của Assistant vào DB (kể cả khi gặp lỗi) để khi reload không bao giờ bị mất
         if session_uuid and text_to_stream:
             try:
                 full_saved_content = text_to_stream

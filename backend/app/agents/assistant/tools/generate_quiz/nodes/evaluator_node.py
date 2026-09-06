@@ -73,6 +73,7 @@ Giải thích: {q.get('explanation', '')}
 4. Câu hỏi có rõ ràng, không mập mờ không?
 5. Trên lệch độ dài các câu trả lời không được quá khác nhau, dẫn đến việc quá dễ để chọn
 6. Trong từng câu hỏi Không quá dễ nhận ra đáp án đúng
+7. Câu hỏi và các phương án A, B, C, D TUYỆT ĐỐI KHÔNG ĐƯỢC CHỨA trích dẫn nguồn (như tên file, số trang, tag [Trang X]). Thông tin nguồn chỉ được phép nằm ở phần giải thích.
 
 Trả lời theo JSON format:
 {{

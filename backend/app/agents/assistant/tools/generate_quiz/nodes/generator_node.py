@@ -118,8 +118,11 @@ Các vấn đề cụ thể cần tránh:
 2. ĐA DẠNG HÓA NỘI DUNG: Mỗi câu hỏi phải khai thác một nội dung/đoạn văn khác nhau trong tài liệu, TUYỆT ĐỐI KHÔNG hỏi nhiều câu về cùng một ý.
 3. PHÂN BỔ ĐỀU ĐÁP ÁN ĐÚNG: Đáp án đúng (correct_answer) PHẢI được chia đều giữa A, B, C, D (TUYỆT ĐỐI KHÔNG để một chữ cái như B hoặc A lặp lại liên tiếp nhiều lần).
 4. 4 lựa chọn (option_a, option_b, option_c, option_d) phải rõ ràng, có độ dài tương đương, chỉ có DUY NHẤT 1 đáp án đúng.
-5. Ghi rõ tên file tài liệu nguồn (source_file) và số trang (source_page) dựa trên thông tin `[tên_file - Trang X]` tương ứng.
-6. Kèm giải thích ngắn gọn cho đáp án đúng.
+5. TUYỆT ĐỐI KHÔNG ĐƯỢC CHỨA TRÍCH DẪN NGUỒN trong câu hỏi (question_text) hoặc các lựa chọn (option_a, option_b, option_c, option_d):
+   - KHÔNG viết tên file, số trang, tag ngoặc vuông hoặc cụm từ trích dẫn (ví dụ: '[Tên_file - Trang X]', 'Theo tài liệu...', '(Trang Y)') trong câu hỏi hoặc các lựa chọn. Câu hỏi và 4 lựa chọn phải hoàn toàn tự nhiên, chuẩn mực như đề thi thật.
+   - Trích dẫn nguồn (tên file, số trang) CHỈ ĐƯỢC PHÉP nằm trong phần giải thích ('explanation') hoặc các trường metadata ('source_file', 'source_page').
+6. Ghi rõ tên file tài liệu nguồn (source_file) và số trang (source_page) dựa trên thông tin `[tên_file - Trang X]` tương ứng.
+7. Kèm giải thích chi tiết cho đáp án đúng (có thể trích dẫn nguồn tài liệu và số trang tại đây).
 
 Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác):
 {{
@@ -147,13 +150,12 @@ Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác
             c_file = chunks[i % len(chunks)].get("file_name", "tai_lieu.pdf") if chunks else "tai_lieu.pdf"
             c_page = chunks[i % len(chunks)].get("page_number", 1) if chunks else 1
             mock_questions.append({
-                "question_text": f"[Mock] Câu hỏi {len(state['accepted_questions']) + i + 1} về {focus} ({aspect_hint[:20]}...)?",
+                "question_text": f"Câu hỏi {len(state['accepted_questions']) + i + 1} về {focus}: Khía cạnh nào sau đây là chính xác?",
                 "option_a": f"Đáp án A {'(đúng)' if ans == 'A' else ''}",
                 "option_b": f"Đáp án B {'(đúng)' if ans == 'B' else ''}",
                 "option_c": f"Đáp án C {'(đúng)' if ans == 'C' else ''}",
                 "option_d": f"Đáp án D {'(đúng)' if ans == 'D' else ''}",
-                "correct_answer": ans,
-                "explanation": f"[{c_file} - Trang {c_page}] Đây là câu hỏi mock về {focus} theo góc nhìn {aspect_hint}.",
+                "explanation": f"[{c_file} - Trang {c_page}] Đây là nội dung kiến thức về {focus} ({aspect_hint}).",
                 "source_page": c_page,
                 "source_file": c_file,
             })
@@ -168,6 +170,15 @@ Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác
     from app.llm.llm_factory import get_structured_llm
     from app.agents.assistant.tools.generate_quiz.schemas import DraftQuestionBatch
     from langchain_core.messages import HumanMessage
+    import re
+
+    def _clean_text_citations(text: str) -> str:
+        if not text:
+            return ""
+        cleaned = re.sub(r"\[(?:\s*[^\]]*?(?:\.pdf|Trang|trang|Nguồn|nguồn|Page|page|Mock|mock)[^\]]*?)\]", "", text, flags=re.IGNORECASE)
+        cleaned = re.sub(r"\((?:\s*[^)]*?(?:Trang|trang|Page|page)\s*\d+[^)]*?)\)", "", cleaned, flags=re.IGNORECASE)
+        cleaned = re.sub(r"^(?:Theo|Dựa vào)\s+tài liệu\s*[^,:]*[,:]\s*", "", cleaned, flags=re.IGNORECASE)
+        return re.sub(r"\s+", " ", cleaned).strip()
 
     generator_model = (state.get("model_config") or {}).get("generator", None)
     llm = get_structured_llm(
@@ -177,14 +188,26 @@ Trả lời theo đúng format JSON sau (KHÔNG thêm bất kỳ text nào khác
         temperature=0.7,
     )
 
-    response = await llm.ainvoke([HumanMessage(content=prompt)])
-
-    if isinstance(response, DraftQuestionBatch):
-        draft_questions = [q.model_dump() for q in response.questions]
-    elif isinstance(response, dict):
-        draft_questions = response.get("questions", [])
-    else:
+    try:
+        response = await llm.ainvoke([HumanMessage(content=prompt)])
+        if isinstance(response, DraftQuestionBatch):
+            draft_questions = [q.model_dump() for q in response.questions]
+        elif isinstance(response, dict):
+            draft_questions = response.get("questions", [])
+        else:
+            draft_questions = []
+    except Exception as e:
+        print(f"Error in generator_node LLM invocation: {e}")
         draft_questions = []
+
+    # Clean any citations from question_text and options
+    for q in draft_questions:
+        if isinstance(q, dict):
+            q["question_text"] = _clean_text_citations(q.get("question_text", ""))
+            q["option_a"] = _clean_text_citations(q.get("option_a", ""))
+            q["option_b"] = _clean_text_citations(q.get("option_b", ""))
+            q["option_c"] = _clean_text_citations(q.get("option_c", ""))
+            q["option_d"] = _clean_text_citations(q.get("option_d", ""))
 
     return {
         "draft_questions": draft_questions,

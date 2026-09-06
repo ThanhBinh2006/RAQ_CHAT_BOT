@@ -14,7 +14,22 @@ from app.agents.assistant.tools.generate_quiz.schemas import SynthesizedBatch
 from app.llm.llm_factory import get_structured_llm
 from app.core.config import settings
 
+import re
+
 logger = logging.getLogger(__name__)
+
+
+def _clean_citation_from_text(text: str) -> str:
+    """
+    Remove any bracketed or parenthesized citation references from question or options,
+    such as [File.pdf - Trang 5], [Trang 12], (Trang 10), [Mock], [Đã sửa], etc.
+    """
+    if not text:
+        return ""
+    cleaned = re.sub(r"\[(?:\s*[^\]]*?(?:\.pdf|Trang|trang|Nguồn|nguồn|Page|page|Mock|mock|Đã sửa)[^\]]*?)\]", "", text, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\((?:\s*[^)]*?(?:Trang|trang|Page|page)\s*\d+[^)]*?)\)", "", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"^(?:Theo|Dựa vào)\s+tài liệu\s*[^,:]*[,:]\s*", "", cleaned, flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", cleaned).strip()
 
 
 def _standardize_question(q: dict) -> Optional[dict]:
@@ -22,11 +37,11 @@ def _standardize_question(q: dict) -> Optional[dict]:
     if not isinstance(q, dict):
         return None
 
-    question_text = str(q.get("question_text") or "").strip()
-    opt_a = str(q.get("option_a") or "").strip()
-    opt_b = str(q.get("option_b") or "").strip()
-    opt_c = str(q.get("option_c") or "").strip()
-    opt_d = str(q.get("option_d") or "").strip()
+    question_text = _clean_citation_from_text(str(q.get("question_text") or "").strip())
+    opt_a = _clean_citation_from_text(str(q.get("option_a") or "").strip())
+    opt_b = _clean_citation_from_text(str(q.get("option_b") or "").strip())
+    opt_c = _clean_citation_from_text(str(q.get("option_c") or "").strip())
+    opt_d = _clean_citation_from_text(str(q.get("option_d") or "").strip())
 
     if not question_text or not opt_a or not opt_b or not opt_c or not opt_d:
         return None
@@ -135,12 +150,13 @@ async def synthesizer_node(state: QuizState) -> dict:
     if flawed_items:
         if settings.USE_MOCK_LLM:
             for orig_idx, q, issue in flawed_items:
+                raw_text = q.get('question_text', f'Câu hỏi {orig_idx + 1}')
                 rewritten_by_index[orig_idx] = {
-                    "question_text": f"[Đã sửa] {q.get('question_text', f'Câu hỏi {orig_idx + 1}')}",
-                    "option_a": q.get("option_a") or "Đáp án A (đã sửa, đúng)",
-                    "option_b": q.get("option_b") or "Đáp án B",
-                    "option_c": q.get("option_c") or "Đáp án C",
-                    "option_d": q.get("option_d") or "Đáp án D",
+                    "question_text": _clean_citation_from_text(raw_text),
+                    "option_a": _clean_citation_from_text(q.get("option_a") or "Đáp án A (chính xác)"),
+                    "option_b": _clean_citation_from_text(q.get("option_b") or "Đáp án B"),
+                    "option_c": _clean_citation_from_text(q.get("option_c") or "Đáp án C"),
+                    "option_d": _clean_citation_from_text(q.get("option_d") or "Đáp án D"),
                     "correct_answer": "A",
                     "explanation": f"Đã viết lại để khắc phục lỗi: {issue}",
                     "source_page": q.get("source_page") or 1,
@@ -182,7 +198,8 @@ Dưới đây là {len(flawed_items)} câu hỏi trắc nghiệm chưa đạt ti
 3. Mỗi câu hỏi phải có đủ 4 phương án lựa chọn: option_a, option_b, option_c, option_d.
 4. Chỉ có DUY NHẤT 1 đáp án đúng (correct_answer phải là một trong: "A", "B", "C", "D").
 5. Độ dài và văn phong các phương án phải tương đương nhau, tránh để đáp án đúng quá dài hoặc quá lộ liễu.
-6. Cung cấp giải thích ngắn gọn, rõ ràng cho đáp án đúng và kèm source_page chính xác."""
+6. TUYỆT ĐỐI KHÔNG ĐƯỢC CHỨA TRÍCH DẪN NGUỒN (như tên file, số trang, tag ngoặc vuông) trong câu hỏi hoặc các phương án lựa chọn. Trích dẫn nguồn chỉ được phép nằm ở phần giải thích (explanation).
+7. Cung cấp giải thích ngắn gọn, rõ ràng cho đáp án đúng và kèm source_page chính xác."""
 
             try:
                 synthesizer_model = model_config.get("synthesizer") or model_config.get("supervisor")
