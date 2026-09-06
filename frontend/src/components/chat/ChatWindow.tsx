@@ -40,7 +40,7 @@ function getHeaders(): Record<string, string> {
         if (parsed.gemini) headers["X-Gemini-Key"] = parsed.gemini;
         if (parsed.openai) headers["X-Openai-Key"] = parsed.openai;
         if (parsed.anthropic) headers["X-Anthropic-Key"] = parsed.anthropic;
-      } catch (e) {}
+      } catch (e) { }
     }
     if (models) {
       try {
@@ -49,7 +49,7 @@ function getHeaders(): Record<string, string> {
         if (parsed.generator) headers["X-Generator-Model"] = parsed.generator;
         if (parsed.evaluator) headers["X-Evaluator-Model"] = parsed.evaluator;
         if (parsed.synthesizer) headers["X-Synthesizer-Model"] = parsed.synthesizer;
-      } catch (e) {}
+      } catch (e) { }
     }
   }
   return headers;
@@ -80,6 +80,8 @@ function parseMessage(rawText: string): ParsedMessage {
   const batchQuestions: QuizQuestion[] = [];
   let totalTarget: number | undefined = undefined;
 
+  let eventQuizId: string | null = null;
+
   while ((match = eventRegex.exec(rawText)) !== null) {
     try {
       const event = JSON.parse(match[1]);
@@ -98,6 +100,8 @@ function parseMessage(rawText: string): ParsedMessage {
         if (event.target) {
           totalTarget = event.target;
         }
+      } else if (event.type === "quiz_ready" && event.quiz_id) {
+        eventQuizId = String(event.quiz_id);
       }
     } catch (e) {
       // bỏ qua nếu event json đang stream dở dang
@@ -146,7 +150,7 @@ function parseMessage(rawText: string): ParsedMessage {
   return {
     cleanText: cleanText.trim(),
     quizDraft: finalQuizDraft || (batchQuestions.length > 0 ? batchQuestions : null),
-    quizId,
+    quizId: quizId || eventQuizId,
     citations,
     activeTool,
     totalTarget,
@@ -331,7 +335,7 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
                     [h.id]: { quizId: q.id, questions: q.questions, title: q.title },
                   }));
                 }
-              }).catch(() => {});
+              }).catch(() => { });
             }
           });
           setQuizMap(qMap);
@@ -363,6 +367,44 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
       isSubscribed = false;
     };
   }, [sessionId, libraryId, setMessages]);
+
+  const fetchingQuizIdsRef = useRef<Set<string>>(new Set());
+
+  // Tự động tải quiz từ DB khi nhận được tín hiệu quiz_id từ backend (không cần reload trang)
+  useEffect(() => {
+    messages.forEach((m) => {
+      if (m.role === "assistant") {
+        const rawText =
+          m.parts?.filter((p: any) => p.type === "text").map((p: any) => p.text).join("\n") ||
+          (m as any).content ||
+          "";
+        const { quizId } = parseMessage(rawText);
+        const targetQuizId = quizId || (m as any).quiz_id;
+
+        if (targetQuizId && !quizMap[m.id] && !fetchingQuizIdsRef.current.has(targetQuizId)) {
+          fetchingQuizIdsRef.current.add(targetQuizId);
+          quizApi
+            .get(targetQuizId)
+            .then((q) => {
+              if (q && q.questions && q.questions.length > 0) {
+                setQuizMap((prev) => ({
+                  ...prev,
+                  [m.id]: {
+                    quizId: q.id,
+                    questions: q.questions,
+                    title: q.title,
+                  },
+                }));
+              }
+            })
+            .catch((err) => {
+              console.error("Lỗi khi tải quiz từ DB theo tín hiệu:", err);
+              fetchingQuizIdsRef.current.delete(targetQuizId);
+            });
+        }
+      }
+    });
+  }, [messages, quizMap]);
 
   const handleSubmit = (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -556,20 +598,18 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
 
                 {/* Message Bubble */}
                 <div
-                  className={`rounded-2xl px-5 py-3.5 text-sm leading-relaxed ${
-                    m.role === 'user'
+                  className={`rounded-2xl px-5 py-3.5 text-sm leading-relaxed ${m.role === 'user'
                       ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white rounded-tr-xs shadow-md shadow-indigo-600/15 font-normal'
                       : 'bg-white/95 backdrop-blur-md text-slate-800 border border-slate-200/80 rounded-tl-xs shadow-sm min-w-[220px]'
-                  }`}
+                    }`}
                 >
                   {/* Hiển thị Tool Activity Banner nếu có tool chạy */}
                   {m.role === 'assistant' && activeTool && (
                     <div
-                      className={`mb-3.5 p-3 rounded-2xl border transition-all duration-300 ${
-                        isCurrentlyStreaming
+                      className={`mb-3.5 p-3 rounded-2xl border transition-all duration-300 ${isCurrentlyStreaming
                           ? "bg-gradient-to-r from-indigo-50/95 via-purple-50/80 to-indigo-50/90 border-indigo-200/90 shadow-sm shadow-indigo-100/50"
                           : "bg-slate-50/90 border-slate-200/80 text-slate-700"
-                      }`}
+                        }`}
                     >
                       <div className="flex items-center justify-between gap-2.5">
                         <div className="flex items-center gap-2.5 min-w-0">
@@ -586,11 +626,10 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
                           </div>
                           <div className="flex flex-col min-w-0">
                             <span
-                              className={`text-xs leading-snug line-clamp-1 ${
-                                isCurrentlyStreaming
+                              className={`text-xs leading-snug line-clamp-1 ${isCurrentlyStreaming
                                   ? "font-bold text-slate-900"
                                   : "font-semibold text-slate-700"
-                              }`}
+                                }`}
                             >
                               {activeTool.label}
                             </span>
@@ -604,11 +643,10 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
 
                         {activeTool.batch && activeTool.total_batches ? (
                           <span
-                            className={`text-[10px] px-2.5 py-1 rounded-full font-bold shrink-0 tracking-wide ${
-                              isCurrentlyStreaming
+                            className={`text-[10px] px-2.5 py-1 rounded-full font-bold shrink-0 tracking-wide ${isCurrentlyStreaming
                                 ? "bg-indigo-600 text-white shadow-2xs"
                                 : "bg-slate-200 text-slate-700"
-                            }`}
+                              }`}
                           >
                             Đợt {activeTool.batch}/{activeTool.total_batches}
                           </span>
@@ -644,12 +682,16 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
                     </div>
                   ) : (
                     // Nếu đang stream và chưa có text phản hồi cuối VÀ chưa có activeTool
-                    isCurrentlyStreaming && !activeTool && (
+                    isCurrentlyStreaming && !activeTool ? (
                       <div className="flex items-center gap-2 text-xs text-slate-500 italic py-1">
                         <span className="w-2 h-2 rounded-full bg-indigo-600 animate-pulse" />
                         <span>Đang xử lý và tổng hợp nội dung...</span>
                       </div>
-                    )
+                    ) : !isCurrentlyStreaming && !displayQuestions ? (
+                      <div className="text-xs text-slate-400 italic py-1">
+                        (Đã hoàn tất xử lý yêu cầu)
+                      </div>
+                    ) : null
                   )}
 
                   {/* Hiển thị Citations nếu có */}
