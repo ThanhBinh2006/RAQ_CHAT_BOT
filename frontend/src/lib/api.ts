@@ -79,6 +79,7 @@ export interface ChatMessageItem {
   content: string;
   citations?: any;
   quiz_id?: string | null;
+  quiz?: Quiz | null;
   created_at: string;
 }
 

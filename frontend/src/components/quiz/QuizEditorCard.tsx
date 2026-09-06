@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { quizApi, QuizQuestion } from "@/lib/api";
+import { quizApi, QuizQuestion, Quiz } from "@/lib/api";
 import { Save, Trash2, FileDown, CheckCircle, AlertCircle } from "lucide-react";
 import { QuizPdfExport } from "./QuizPdfExport";
 
@@ -9,14 +9,23 @@ interface Props {
   libraryId: string;
   initialQuestions: QuizQuestion[];
   suggestedTitle: string;
+  quizId?: string | null;
   onClose?: () => void;
+  onSaved?: (updatedQuiz: Quiz) => void;
 }
 
-export function QuizEditorCard({ libraryId, initialQuestions, suggestedTitle, onClose }: Props) {
+export function QuizEditorCard({
+  libraryId,
+  initialQuestions,
+  suggestedTitle,
+  quizId,
+  onClose,
+  onSaved,
+}: Props) {
   const [title, setTitle] = useState(suggestedTitle);
   const [questions, setQuestions] = useState<QuizQuestion[]>(initialQuestions);
   const [saving, setSaving] = useState(false);
-  const [savedId, setSavedId] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(quizId || null);
   const [error, setError] = useState<string | null>(null);
   const [showPdfExport, setShowPdfExport] = useState(false);
 
@@ -34,13 +43,26 @@ export function QuizEditorCard({ libraryId, initialQuestions, suggestedTitle, on
     setSaving(true);
     setError(null);
     try {
-      const result = await quizApi.create({
-        library_id: libraryId,
-        title,
-        questions,
-        is_edited_by_user: true,
-      });
+      let result: Quiz;
+      const targetId = quizId || savedId;
+      if (targetId) {
+        // CẬP NHẬT ĐÈ LÊN QUIZ ĐÃ CÓ TRONG DATABASE (PUT)
+        result = await quizApi.update(targetId, {
+          library_id: libraryId,
+          title,
+          questions,
+        });
+      } else {
+        // TẠO MỚI NẾU CHƯA CÓ QUIZ ID (POST)
+        result = await quizApi.create({
+          library_id: libraryId,
+          title,
+          questions,
+          is_edited_by_user: true,
+        });
+      }
       setSavedId(result.id);
+      if (onSaved) onSaved(result);
     } catch (e: any) {
       setError(e.message || "Lưu quiz thất bại");
     } finally {

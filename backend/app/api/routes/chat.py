@@ -14,7 +14,7 @@ router = APIRouter()
 from uuid import UUID, uuid4
 from datetime import datetime, timezone
 from app.core.db import AsyncSessionLocal
-from app.db.models import ChatMessage, ChatSession
+from app.db.models import ChatMessage, ChatSession, Quiz, QuizQuestion
 
 class ChatRequest(BaseModel):
     messages: List[Dict[str, Any]]
@@ -259,43 +259,64 @@ async def chat_endpoint(request: ChatRequest, req: Request):
             yield chunk
             await asyncio.sleep(0.015)
 
-        # 4. Gửi kèm quiz_draft và citations nếu có để Frontend render card tương ứng
-        meta_json_str = ""
-        if quiz_draft or citations:
-            meta: Dict[str, Any] = {}
-            if quiz_draft:
-                meta["quiz_draft"] = quiz_draft
-            if citations:
-                meta["citations"] = citations
+        # 4. Tự động lưu Quiz vào DB (nếu có câu hỏi)
+        saved_quiz_id = None
+        if quiz_draft and session_uuid:
+            try:
+                async with AsyncSessionLocal() as db:
+                    lib_id = UUID(request.libraryId) if request.libraryId else None
+                    new_quiz = Quiz(
+                        id=uuid4(),
+                        library_id=lib_id,
+                        user_id=user_id,
+                        title=f"Đề ôn tập {datetime.now().strftime('%d/%m/%Y %H:%M')}",
+                        total_questions=len(quiz_draft),
+                        is_edited_by_user=False,
+                    )
+                    db.add(new_quiz)
+                    await db.flush()
 
-            def serialize_meta(val: Any) -> Any:
-                if hasattr(val, "model_dump"):
-                    return val.model_dump()
-                if hasattr(val, "dict"):
-                    return val.dict()
-                if isinstance(val, list):
-                    return [serialize_meta(item) for item in val]
-                if isinstance(val, dict):
-                    return {k: serialize_meta(v) for k, v in val.items()}
-                return val
+                    for idx, q in enumerate(quiz_draft):
+                        db.add(QuizQuestion(
+                            id=uuid4(),
+                            quiz_id=new_quiz.id,
+                            order_index=idx,
+                            question_text=q.get("question_text", ""),
+                            option_a=q.get("option_a", ""),
+                            option_b=q.get("option_b", ""),
+                            option_c=q.get("option_c", ""),
+                            option_d=q.get("option_d", ""),
+                            correct_answer=q.get("correct_answer", "A"),
+                            explanation=q.get("explanation"),
+                            source_page=q.get("source_page"),
+                        ))
+                    await db.commit()
+                    saved_quiz_id = new_quiz.id
+            except Exception as e:
+                print(f"Error auto-saving quiz to DB: {e}")
 
-            meta_json_str = json.dumps(serialize_meta(meta), ensure_ascii=False)
+        # 5. Gửi metadata (quiz_id, citations) về Frontend nếu có
+        meta: Dict[str, Any] = {}
+        if saved_quiz_id:
+            meta["quiz_id"] = str(saved_quiz_id)
+        if citations:
+            meta["citations"] = citations
+
+        if meta:
+            meta_json_str = json.dumps(meta, ensure_ascii=False)
             yield f"\n\n<!--METADATA_START-->{meta_json_str}<!--METADATA_END-->"
 
-        # 5. LUÔN LUÔN lưu tin nhắn của Assistant vào DB (kể cả khi gặp lỗi) để khi reload không bao giờ bị mất
+        # 6. LUÔN LUÔN lưu tin nhắn của Assistant vào DB với văn bản thuần (KHÔNG lưu JSON câu hỏi trong content)
         if session_uuid and text_to_stream:
             try:
-                full_saved_content = text_to_stream
-                if meta_json_str:
-                    full_saved_content += f"\n\n<!--METADATA_START-->{meta_json_str}<!--METADATA_END-->"
-
                 async with AsyncSessionLocal() as db:
                     asst_msg = ChatMessage(
                         id=uuid4(),
                         session_id=session_uuid,
                         role="assistant",
-                        content=full_saved_content,
+                        content=text_to_stream,
                         citations=citations,
+                        quiz_id=saved_quiz_id,
                     )
                     db.add(asst_msg)
                     sess = await db.get(ChatSession, session_uuid)

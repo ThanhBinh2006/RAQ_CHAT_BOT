@@ -8,9 +8,10 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_db, get_current_user
-from app.db.models import Library, ChatSession, ChatMessage, Document, User
+from app.db.models import Library, ChatSession, ChatMessage, Document, User, Quiz
 from app.schemas.library import LibraryCreate, LibraryOut, SessionCreate, SessionOut
 from app.schemas.chat import MessageOut
 
@@ -158,6 +159,7 @@ async def list_session_messages(
 
     result = await db.execute(
         select(ChatMessage)
+        .options(selectinload(ChatMessage.quiz).selectinload(Quiz.questions))
         .where(ChatMessage.session_id == session.id)
         .order_by(ChatMessage.created_at.asc())
     )

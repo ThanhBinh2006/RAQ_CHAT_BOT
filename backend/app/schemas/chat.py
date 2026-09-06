@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional, List,Dict
 from uuid import UUID
 from datetime import datetime
+from app.schemas.quiz import QuizOut
 
 
 class MessageCreate(BaseModel):
@@ -23,6 +24,7 @@ class MessageOut(BaseModel):
     content: str
     citations: Optional[List[Dict]] = None
     quiz_id: Optional[UUID] = None
+    quiz: Optional[QuizOut] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

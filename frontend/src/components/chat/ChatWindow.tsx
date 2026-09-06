@@ -22,7 +22,7 @@ import {
 } from "lucide-react";
 import { useChat } from "@ai-sdk/react";
 import { TextStreamChatTransport } from "ai";
-import { QuizQuestion, sessionApi } from "@/lib/api";
+import { QuizQuestion, Quiz, sessionApi, quizApi } from "@/lib/api";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -66,6 +66,7 @@ export interface ToolStatusEvent {
 interface ParsedMessage {
   cleanText: string;
   quizDraft?: QuizQuestion[] | null;
+  quizId?: string | null;
   citations?: Array<{ page_number?: number; document_id?: string; file_name?: string }> | null;
   activeTool?: ToolStatusEvent | null;
   totalTarget?: number;
@@ -112,6 +113,7 @@ function parseMessage(rawText: string): ParsedMessage {
   const startIndex = textWithoutEvents.indexOf(startTag);
   let cleanText = textWithoutEvents;
   let finalQuizDraft: QuizQuestion[] | null = null;
+  let quizId: string | null = null;
   let citations: Array<{ page_number?: number; document_id?: string; file_name?: string }> | null = null;
 
   if (startIndex !== -1) {
@@ -121,6 +123,9 @@ function parseMessage(rawText: string): ParsedMessage {
       const jsonStr = textWithoutEvents.substring(startIndex + startTag.length, endIndex).trim();
       try {
         const meta = JSON.parse(jsonStr);
+        if (meta.quiz_id) {
+          quizId = String(meta.quiz_id);
+        }
         if (meta.quiz_draft && Array.isArray(meta.quiz_draft) && meta.quiz_draft.length > 0) {
           finalQuizDraft = meta.quiz_draft;
         }
@@ -141,6 +146,7 @@ function parseMessage(rawText: string): ParsedMessage {
   return {
     cleanText: cleanText.trim(),
     quizDraft: finalQuizDraft || (batchQuestions.length > 0 ? batchQuestions : null),
+    quizId,
     citations,
     activeTool,
     totalTarget,
@@ -261,9 +267,17 @@ interface Props {
   onMessageSent?: () => void;
 }
 
+interface EditingQuizState {
+  messageId: string;
+  quizId?: string | null;
+  questions: QuizQuestion[];
+  title?: string;
+}
+
 export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
   const [input, setInput] = useState("");
-  const [editingQuiz, setEditingQuiz] = useState<QuizQuestion[] | null>(null);
+  const [editingQuizState, setEditingQuizState] = useState<EditingQuizState | null>(null);
+  const [quizMap, setQuizMap] = useState<Record<string, { quizId?: string | null; questions: QuizQuestion[]; title?: string }>>({});
   const [loadingHistory, setLoadingHistory] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -288,6 +302,7 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
   useEffect(() => {
     if (!sessionId || !libraryId) {
       setMessages([]);
+      setQuizMap({});
       return;
     }
 
@@ -299,6 +314,28 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
       .then((history) => {
         if (!isSubscribed) return;
         if (history && history.length > 0) {
+          const qMap: Record<string, { quizId?: string | null; questions: QuizQuestion[]; title?: string }> = {};
+
+          history.forEach((h) => {
+            if (h.quiz && h.quiz.questions && h.quiz.questions.length > 0) {
+              qMap[h.id] = {
+                quizId: h.quiz.id,
+                questions: h.quiz.questions,
+                title: h.quiz.title,
+              };
+            } else if (h.quiz_id) {
+              quizApi.get(h.quiz_id).then((q) => {
+                if (q && q.questions && isSubscribed) {
+                  setQuizMap((prev) => ({
+                    ...prev,
+                    [h.id]: { quizId: q.id, questions: q.questions, title: q.title },
+                  }));
+                }
+              }).catch(() => {});
+            }
+          });
+          setQuizMap(qMap);
+
           setMessages(
             history.map((h) => ({
               id: h.id,
@@ -306,10 +343,13 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
               content: h.content,
               parts: [{ type: "text" as const, text: h.content }],
               createdAt: new Date(h.created_at),
+              citations: h.citations,
+              quiz_id: h.quiz_id,
             }))
           );
         } else {
           setMessages([]);
+          setQuizMap({});
         }
       })
       .catch((err) => {
@@ -382,12 +422,12 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
       <div className="absolute bottom-16 left-0 w-[400px] h-[400px] bg-gradient-to-tr from-sky-100/40 via-indigo-100/20 to-transparent rounded-full blur-3xl pointer-events-none" />
 
       {/* Editor Modal/Overlay khi nhấn 'Chỉnh sửa & Lưu' */}
-      {editingQuiz && (
+      {editingQuizState && (
         <div className="absolute inset-0 z-30 bg-slate-900/40 backdrop-blur-sm p-4 md:p-6 overflow-y-auto flex flex-col animate-fade-in">
           <div className="max-w-4xl mx-auto w-full my-auto bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 bg-slate-50/80">
               <button
-                onClick={() => setEditingQuiz(null)}
+                onClick={() => setEditingQuizState(null)}
                 className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-slate-200/70 transition-all cursor-pointer"
               >
                 <ArrowLeft size={15} /> Quay lại cuộc trò chuyện
@@ -403,9 +443,21 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
             <div className="p-4 overflow-y-auto flex-1">
               <QuizEditorCard
                 libraryId={libraryId}
-                initialQuestions={editingQuiz}
-                suggestedTitle={`Đề ôn tập ${new Date().toLocaleDateString("vi-VN")}`}
-                onClose={() => setEditingQuiz(null)}
+                initialQuestions={editingQuizState.questions}
+                suggestedTitle={editingQuizState.title || `Đề ôn tập ${new Date().toLocaleDateString("vi-VN")}`}
+                quizId={editingQuizState.quizId}
+                onClose={() => setEditingQuizState(null)}
+                onSaved={(updatedQuiz) => {
+                  setQuizMap((prev) => ({
+                    ...prev,
+                    [editingQuizState.messageId]: {
+                      quizId: updatedQuiz.id,
+                      questions: updatedQuiz.questions,
+                      title: updatedQuiz.title,
+                    },
+                  }));
+                  setEditingQuizState(null);
+                }}
               />
             </div>
           </div>
@@ -476,9 +528,16 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
             m.parts?.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('\n') ||
             (m as any).content ||
             '';
-          const { cleanText, quizDraft, citations, activeTool, totalTarget } = parseMessage(rawText);
+          const { cleanText, quizDraft, quizId, citations, activeTool, totalTarget } = parseMessage(rawText);
           const isLastAssistantMessage = m.role === 'assistant' && idx === messages.length - 1;
           const isCurrentlyStreaming = isLastAssistantMessage && isLoading;
+
+          // Xác định Quiz: Ưu tiên lấy từ DB (quizMap) hoặc từ streaming quizDraft
+          const dbQuiz = quizMap[m.id];
+          const displayQuestions = dbQuiz?.questions || quizDraft;
+          const currentQuizId = dbQuiz?.quizId || quizId || (m as any).quiz_id || null;
+          const currentQuizTitle = dbQuiz?.title || (currentQuizId ? "Đề ôn tập" : `Đề ôn tập ${new Date().toLocaleDateString("vi-VN")}`);
+          const effectiveCitations = citations || (m as any).citations || null;
 
           return (
             <div
@@ -594,8 +653,8 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
                   )}
 
                   {/* Hiển thị Citations nếu có */}
-                  {citations && citations.length > 0 && (
-                    <CitationList citations={citations} />
+                  {effectiveCitations && effectiveCitations.length > 0 && (
+                    <CitationList citations={effectiveCitations} />
                   )}
                 </div>
 
@@ -607,12 +666,19 @@ export function ChatWindow({ libraryId, sessionId, onMessageSent }: Props) {
                 )}
               </div>
 
-              {/* Hiển thị Quiz Preview Card nếu tin nhắn có quiz_draft */}
-              {quizDraft && quizDraft.length > 0 && (
+              {/* Hiển thị Quiz Preview Card nếu tin nhắn có quiz từ DB hoặc đang sinh */}
+              {displayQuestions && displayQuestions.length > 0 && (
                 <div className="w-full max-w-2xl pl-11">
                   <QuizPreviewCard
-                    questions={quizDraft}
-                    onEdit={() => setEditingQuiz(quizDraft)}
+                    questions={displayQuestions}
+                    onEdit={() =>
+                      setEditingQuizState({
+                        messageId: m.id,
+                        quizId: currentQuizId,
+                        questions: displayQuestions,
+                        title: currentQuizTitle,
+                      })
+                    }
                     isGenerating={isCurrentlyStreaming}
                     totalTarget={totalTarget}
                   />

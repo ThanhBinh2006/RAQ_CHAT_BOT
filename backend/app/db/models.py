@@ -130,6 +130,7 @@ class ChatMessage(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     session = relationship("ChatSession", back_populates="messages")
+    quiz = relationship("Quiz", lazy="selectin")
 
     __table_args__ = (
         CheckConstraint("role IN ('user', 'assistant')", name="ck_message_role"),
@@ -151,7 +152,7 @@ class Quiz(Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
     library = relationship("Library", back_populates="quizzes")
-    questions = relationship("QuizQuestion", back_populates="quiz", cascade="all, delete-orphan")
+    questions = relationship("QuizQuestion", back_populates="quiz", cascade="all, delete-orphan", lazy="selectin", order_by="QuizQuestion.order_index")
 
 
 # ── 9. QuizQuestion ──────────────────────────────────────────

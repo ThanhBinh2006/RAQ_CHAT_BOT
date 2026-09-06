@@ -2,7 +2,7 @@
 Quiz CRUD routes: create, get, update.
 """
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -63,7 +63,12 @@ async def get_quiz(
     current_user: User = Depends(get_current_user),
 ):
     """Get a quiz with all its questions."""
-    quiz = await db.get(Quiz, quiz_id)
+    try:
+        uid = UUID(quiz_id) if isinstance(quiz_id, str) else quiz_id
+    except (ValueError, TypeError):
+        raise HTTPException(404, "Không tìm thấy quiz")
+
+    quiz = await db.get(Quiz, uid)
     if not quiz or quiz.user_id != current_user.id:
         raise HTTPException(404, "Không tìm thấy quiz")
     return await _to_quiz_out(db, quiz)
@@ -77,7 +82,12 @@ async def update_quiz(
     current_user: User = Depends(get_current_user),
 ):
     """Update an existing quiz — replaces all questions."""
-    quiz = await db.get(Quiz, quiz_id)
+    try:
+        uid = UUID(quiz_id) if isinstance(quiz_id, str) else quiz_id
+    except (ValueError, TypeError):
+        raise HTTPException(404, "Không tìm thấy quiz")
+
+    quiz = await db.get(Quiz, uid)
     if not quiz or quiz.user_id != current_user.id:
         raise HTTPException(404, "Không tìm thấy quiz")
 
