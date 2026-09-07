@@ -1,4 +1,4 @@
-<![CDATA[# 🏗️ ARCHITECTURE.md — Kiến trúc Hệ thống RAQ Chatbot
+# 🏗️ ARCHITECTURE.md — Kiến trúc Hệ thống RAQ Chatbot
 
 ---
 
@@ -604,4 +604,3 @@ allow_credentials=True
 | Chat LLM key (gemini/openai/anthropic) | ✅ Có (BYOK) | Cho chat & quiz generation |
 | System default key (NVIDIA NIM) | ❌ Không (admin-only) | Fallback khi user không có key |
 | Embedding key | ❌ Không (admin-only) | Tạo embedding vectors (NVIDIA) |
-]]>

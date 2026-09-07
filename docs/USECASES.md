@@ -1,4 +1,4 @@
-<![CDATA[# 📋 USECASES.md — Đặc tả Use Case theo Cockburn
+# 📋 USECASES.md — Đặc tả Use Case theo Cockburn
 
 > Tài liệu đặc tả các Use Case chính của RAQ Chatbot, trình bày theo khuôn mẫu **Cockburn (Fully-dressed)**.
 
@@ -427,4 +427,3 @@
 | UC-06 `<<extends>>` UC-05 | Sinh quiz là một loại chat action |
 | UC-07 `<<extends>>` UC-06 | Chỉnh sửa quiz đã được sinh |
 | UC-08 `<<extends>>` UC-06/07 | Xuất PDF từ quiz đã có |
-]]>

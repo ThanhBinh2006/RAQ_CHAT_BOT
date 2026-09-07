@@ -1,4 +1,4 @@
-<![CDATA[# 📡 API.md — Đặc tả API RESTful
+# 📡 API.md — Đặc tả API RESTful
 
 > Tài liệu đặc tả chi tiết tất cả endpoint API của RAQ Chatbot Backend.
 > Base URL: `http://localhost:8000`
@@ -576,4 +576,3 @@ GET /api/health
   ]
 }
 ```
-]]>

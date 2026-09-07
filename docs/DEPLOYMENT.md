@@ -1,4 +1,4 @@
-<![CDATA[# 🚀 DEPLOYMENT.md — Hướng dẫn Triển khai & Vận hành
+# 🚀 DEPLOYMENT.md — Hướng dẫn Triển khai & Vận hành
 
 > Tài liệu hướng dẫn triển khai RAQ Chatbot lên môi trường production, bao gồm Docker, cloud platforms và các chiến lược giám sát.
 
@@ -550,4 +550,3 @@ docker compose up --build -d
 ```
 
 > Lệnh `-v` xóa tất cả Docker volumes (PostgreSQL data + MinIO files). Schema sẽ tự tạo lại từ `sql/init.sql`.
-]]>

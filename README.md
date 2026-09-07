@@ -1,4 +1,4 @@
-<![CDATA[# 📚 RAQ Chatbot — Retrieval-Augmented Quiz Generation Platform
+# 📚 RAQ Chatbot — Retrieval-Augmented Quiz Generation Platform
 
 > **Nền tảng Chatbot học tập thông minh** tích hợp kỹ thuật RAG (Retrieval-Augmented Generation) và hệ thống Multi-Agent AI để tự động tạo đề thi trắc nghiệm bám sát tài liệu PDF do người dùng tải lên.
 
@@ -284,4 +284,4 @@ RAQ_CHAT_BOT/
 ├── docker-compose.yml          # All-in-one orchestration
 └── README.md                   # ← Bạn đang ở đây
 ```
-]]>
+
