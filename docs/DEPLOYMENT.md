@@ -1,59 +1,59 @@
-# 🚀 DEPLOYMENT.md — Hướng dẫn Triển khai & Vận hành
+# 🚀 DEPLOYMENT.md — Deployment & Operations Guide
 
-> Tài liệu hướng dẫn triển khai RAQ Chatbot lên môi trường production, bao gồm Docker, cloud platforms và các chiến lược giám sát.
+> Production deployment and operations guide for the RAQ Chatbot platform, covering Docker orchestration, cloud platforms, and monitoring strategies.
 
 ---
 
-## 📑 Mục lục
+## 📑 Table of Contents
 
-- [1. Tổng quan các phương án triển khai](#1-tổng-quan-các-phương-án-triển-khai)
-- [2. Phương án 1: Docker Compose toàn bộ (local/VPS)](#2-phương-án-1-docker-compose-toàn-bộ-localvps)
-- [3. Phương án 2: DB + MinIO trên server, FE + BE trên nền tảng](#3-phương-án-2-db--minio-trên-server-fe--be-trên-nền-tảng)
-- [4. Chi tiết Dockerfile](#4-chi-tiết-dockerfile)
-- [5. Cấu hình Production](#5-cấu-hình-production)
-- [6. Giám sát & Logging](#6-giám-sát--logging)
+- [1. Deployment Options Overview](#1-deployment-options-overview)
+- [2. Option 1: Full Docker Compose (Local / VPS)](#2-option-1-full-docker-compose-local--vps)
+- [3. Option 2: Hybrid Deployment (Server DB + Managed Platforms)](#3-option-2-hybrid-deployment-server-db--managed-platforms)
+- [4. Dockerfile Specifications](#4-dockerfile-specifications)
+- [5. Production Configuration](#5-production-configuration)
+- [6. Monitoring & Logging](#6-monitoring--logging)
 - [7. Backup & Recovery](#7-backup--recovery)
 - [8. Troubleshooting](#8-troubleshooting)
 
 ---
 
-## 1. Tổng quan các phương án triển khai
+## 1. Deployment Options Overview
 
-| Phương án | DB & MinIO | Backend | Frontend | Phù hợp |
-|----------|-----------|---------|----------|---------|
-| **1. All-in-One Docker** | Docker container | Docker container | Docker container | Demo, VPS đơn, chấm điểm |
-| **2. Hybrid (khuyến nghị)** | Server/VPS (Docker) | Render / Railway / Cloud Run | Vercel / Netlify | Production nhẹ, team nhỏ |
+| Option | DB & MinIO | Backend | Frontend | Best For |
+|--------|------------|---------|----------|----------|
+| **1. All-in-One Docker** | Docker container | Docker container | Docker container | Demos, single VPS, grading |
+| **2. Hybrid (Recommended)** | Server/VPS (Docker) | Render / Railway / Cloud Run | Vercel / Netlify | Light production, small teams |
 
 ---
 
-## 2. Phương án 1: Docker Compose toàn bộ (local/VPS)
+## 2. Option 1: Full Docker Compose (Local / VPS)
 
-### 2.1 Yêu cầu
+### 2.1 Requirements
 
-- VPS/Server: ≥ 4 vCPU, ≥ 8 GB RAM, ≥ 20 GB SSD
+- VPS / Dedicated Server: ≥ 4 vCPUs, ≥ 8 GB RAM, ≥ 20 GB SSD
 - Docker ≥ 24.x + Docker Compose V2
-- Domain + SSL (nếu public)
+- Domain name and SSL certificate (for public deployments)
 
-### 2.2 Các bước triển khai
+### 2.2 Step-by-Step Deployment
 
-**Bước 1: Clone repository**
+**Step 1: Clone repository**
 ```bash
 git clone <repository-url>
 cd RAQ_CHAT_BOT
 ```
 
-**Bước 2: Cấu hình environment**
+**Step 2: Configure environment**
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-Sửa `backend/.env`:
+Modify `backend/.env`:
 ```env
-# ── Bắt buộc đổi cho production ─────────────────────────
+# ── Mandatory production changes ────────────────────────
 JWT_SECRET_KEY=<random-string-32-chars>
 USE_MOCK_LLM=false
 
-# ── API Keys (bắt buộc khi USE_MOCK_LLM=false) ────────
+# ── API Keys (Required when USE_MOCK_LLM=false) ─────────
 SYSTEM_DEFAULT_API_KEY=nvapi-xxxx
 SYSTEM_DEFAULT_EMBEDDING_KEY=nvapi-yyyy
 
@@ -62,19 +62,19 @@ DEFAULT_CHAT_MODEL=deepseek-ai/deepseek-v4-pro-0813
 DEFAULT_EMBEDDING_MODEL=nvidia/nemotron-3-embed-1b
 ```
 
-**Bước 3: Cập nhật docker-compose.yml (production)**
+**Step 3: Update docker-compose.yml for production**
 
-Sửa các giá trị trong `docker-compose.yml`:
+Adjust values in `docker-compose.yml`:
 ```yaml
 services:
   postgres:
     environment:
-      POSTGRES_PASSWORD: <strong-password>  # Đổi khỏi "postgres"
+      POSTGRES_PASSWORD: <strong-password>  # Change from default
 
   minio:
     environment:
       MINIO_ROOT_USER: <minio-admin-user>
-      MINIO_ROOT_PASSWORD: <strong-password>  # Đổi khỏi "minioadmin"
+      MINIO_ROOT_PASSWORD: <strong-password>  # Change from default
 
   backend:
     environment:
@@ -93,27 +93,27 @@ services:
       - NEXT_PUBLIC_API_URL=https://api.your-domain.com
 ```
 
-**Bước 4: Build và chạy**
+**Step 4: Build and launch**
 ```bash
 docker compose up --build -d
 ```
 
-**Bước 5: Verify**
+**Step 5: Verify status**
 ```bash
-# Kiểm tra tất cả services
+# Check container status
 docker compose ps
 
-# Kiểm tra health
+# Check backend health
 curl http://localhost:8000/api/health
 
-# Xem logs
+# Inspect logs
 docker compose logs -f backend
 docker compose logs -f frontend
 ```
 
 ### 2.3 Reverse Proxy (Nginx)
 
-Nếu deploy trên VPS với domain, thêm Nginx reverse proxy:
+When deploying to a VPS with a domain, configure Nginx as a reverse proxy:
 
 ```nginx
 # /etc/nginx/sites-available/raq-chatbot
@@ -149,7 +149,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
 
-        # SSE streaming support
+        # SSE streaming configurations
         proxy_buffering off;
         proxy_cache off;
         proxy_read_timeout 300s;
@@ -159,9 +159,9 @@ server {
 
 ---
 
-## 3. Phương án 2: DB + MinIO trên server, FE + BE trên nền tảng
+## 3. Option 2: Hybrid Deployment (Server DB + Managed Platforms)
 
-### 3.1 Kiến trúc
+### 3.1 Architecture
 
 ```
 ┌──────────────┐     ┌──────────────┐     ┌──────────────────────┐
@@ -176,9 +176,9 @@ server {
                                           └──────────────────────┘
 ```
 
-### 3.2 Bước 1: Deploy DB + MinIO trên VPS
+### 3.2 Step 1: Deploy DB + MinIO on VPS
 
-**docker-compose.infra.yml** (chỉ DB + MinIO):
+**docker-compose.infra.yml** (Infrastructure services only):
 
 ```yaml
 version: "3.9"
@@ -228,16 +228,16 @@ volumes:
 ```
 
 ```bash
-# Trên VPS
+# On the VPS
 docker compose -f docker-compose.infra.yml up -d
 ```
 
-> ⚠️ **Bảo mật**: Cấu hình firewall chỉ mở port 5432 và 9000 cho IP của Render/Railway. Không mở public.
+> ⚠️ **Security**: Configure VPS firewall rules to only allow ingress on ports 5432 and 9000 from the IP ranges of Render / Railway. Do not expose these database ports publicly.
 
-### 3.3 Bước 2: Deploy Backend lên Render/Railway
+### 3.3 Step 2: Deploy Backend to Render / Railway
 
-**Render:**
-1. Connect GitHub repo
+**Render Setup:**
+1. Connect GitHub repository
 2. Root Directory: `backend`
 3. Build Command: `pip install -r requirements.txt`
 4. Start Command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`
@@ -258,17 +258,17 @@ DEFAULT_EMBEDDING_MODEL=nvidia/nemotron-3-embed-1b
 FRONTEND_URL=https://your-app.vercel.app
 ```
 
-**Railway:**
+**Railway Setup:**
 1. New Project → Deploy from GitHub
-2. Cùng environment variables như Render
-3. Railway auto-detect Dockerfile hoặc dùng `Procfile`:
+2. Set identical environment variables as Render
+3. Railway automatically detects Dockerfile or uses `Procfile`:
 ```
 web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 ```
 
-### 3.4 Bước 3: Deploy Frontend lên Vercel
+### 3.4 Step 3: Deploy Frontend to Vercel
 
-1. Import project từ GitHub
+1. Import project repository from GitHub
 2. Framework Preset: Next.js
 3. Root Directory: `frontend`
 4. Environment Variables:
@@ -276,11 +276,11 @@ web: uvicorn app.main:app --host 0.0.0.0 --port $PORT
 NEXT_PUBLIC_API_URL=https://your-backend.onrender.com
 ```
 
-> **Lưu ý**: `NEXT_PUBLIC_API_URL` là build-time variable trong Next.js. Phải rebuild khi thay đổi.
+> **Note**: `NEXT_PUBLIC_API_URL` is a build-time variable in Next.js. Any change requires triggering a project redeploy.
 
 ---
 
-## 4. Chi tiết Dockerfile
+## 4. Dockerfile Specifications
 
 ### 4.1 Backend Dockerfile
 
@@ -310,10 +310,10 @@ EXPOSE 8000
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
 ```
 
-**Đặc điểm:**
-- Base image: `python:3.11-slim` (nhẹ, ~150MB)
-- Layer caching: `requirements.txt` copy riêng trước source code
-- PORT configurable qua env (phù hợp Render/Railway)
+**Key Characteristics:**
+- Base image: `python:3.11-slim` (lightweight, ~150MB base)
+- Layer caching: `requirements.txt` is copied and installed prior to application source code
+- Configurable port: Adapts to hosting platform `$PORT` variables
 
 ### 4.2 Frontend Dockerfile
 
@@ -350,10 +350,10 @@ EXPOSE 3000
 CMD ["npm", "start"]
 ```
 
-**Đặc điểm:**
-- 3-stage build: deps → build → production (~200MB final image)
-- Non-root user `nextjs` (bảo mật)
-- `NEXT_PUBLIC_API_URL` inject lúc build (ARG → ENV)
+**Key Characteristics:**
+- Multi-stage build (deps → builder → runner) yields an optimized production image (~200MB)
+- Execution runs under the non-privileged `nextjs` system user
+- `NEXT_PUBLIC_API_URL` injected at build-time via Docker build arguments
 
 ### 4.3 Docker Ignore Files
 
@@ -378,82 +378,82 @@ node_modules/
 
 ---
 
-## 5. Cấu hình Production
+## 5. Production Configuration
 
-### 5.1 Checklist bảo mật
+### 5.1 Security Checklist
 
-| # | Hạng mục | Hành động |
-|---|---------|-----------|
-| 1 | JWT Secret | Đổi `JWT_SECRET_KEY` sang chuỗi random ≥ 32 ký tự |
-| 2 | DB Password | Đổi `POSTGRES_PASSWORD` sang mật khẩu mạnh |
-| 3 | MinIO Password | Đổi `MINIO_ROOT_PASSWORD` sang mật khẩu mạnh |
-| 4 | CORS | Chỉ cho phép domain frontend thực tế trong `FRONTEND_URL` |
-| 5 | Mock Mode | Set `USE_MOCK_LLM=false` (production) |
-| 6 | SSL/TLS | Cấu hình HTTPS cho tất cả endpoints |
-| 7 | Firewall | Chỉ mở ports cần thiết (80, 443) |
-| 8 | API Keys | Không commit API keys vào Git |
+| # | Item | Action |
+|---|------|--------|
+| 1 | JWT Secret | Set `JWT_SECRET_KEY` to a random, unguessable string ≥ 32 characters |
+| 2 | Database Password | Replace default `POSTGRES_PASSWORD` with a strong password |
+| 3 | MinIO Password | Replace default `MINIO_ROOT_PASSWORD` with a strong password |
+| 4 | CORS Whitelist | Only permit actual frontend domains in `FRONTEND_URL` |
+| 5 | Mock Mode | Ensure `USE_MOCK_LLM=false` is set in production |
+| 6 | SSL / TLS | Enforce HTTPS across all frontend and API endpoints |
+| 7 | Firewall | Expose only necessary ingress ports (80, 443) |
+| 8 | Secrets Management | Never commit production API keys or credentials to Git |
 
-### 5.2 Scaling
+### 5.2 Scaling Considerations
 
-| Component | Horizontal Scale | Lưu ý |
-|-----------|-----------------|--------|
-| Frontend | ✅ Stateless | Scale freely trên Vercel/CDN |
-| Backend | ⚠️ Cẩn thận | `asyncio.create_task` cho ingestion chỉ hoạt động trong cùng process |
-| PostgreSQL | ❌ Single instance | Cần read replicas cho scale lớn |
-| MinIO | ✅ Cluster mode | MinIO hỗ trợ distributed mode |
+| Component | Horizontal Scaling | Notes |
+|-----------|-------------------|-------|
+| Frontend | ✅ Fully Stateless | Scales seamlessly on Vercel or CDN edges |
+| Backend | ⚠️ Single-worker recommended | Background `asyncio.create_task` ingestion runs within the local process |
+| PostgreSQL | ❌ Single instance | Requires read-replicas for extreme query loads |
+| MinIO | ✅ Supported | MinIO offers native distributed cluster mode |
 
 ### 5.3 Performance Tuning
 
-**PostgreSQL:**
+**PostgreSQL (pgvector):**
 ```sql
--- Tối ưu cho pgvector search
+-- Optimize cosine similarity search for large datasets
 CREATE INDEX idx_chunks_embedding ON document_chunks
   USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 
--- Chỉ tạo khi có > 10,000 chunks
+-- Recommended when document_chunks exceeds 10,000 records
 ```
 
-**Backend:**
+**Backend Process:**
 ```bash
-# Production: dùng multiple workers (cẩn thận với background tasks)
+# Production: run single worker per container when relying on in-process background tasks
 uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1
 ```
 
-> ⚠️ **Lưu ý**: Vì backend sử dụng `asyncio.create_task()` cho ingestion, nên **không nên dùng nhiều workers** trừ khi chuyển sang task queue (Celery/Redis).
+> ⚠️ **Note**: Since the backend executes ingestion tasks via `asyncio.create_task()`, running multiple workers without an external queue (such as Celery / Redis) can lead to uncoordinated job states.
 
 ---
 
-## 6. Giám sát & Logging
+## 6. Monitoring & Logging
 
 ### 6.1 Health Check
 
 ```bash
-# Cron job kiểm tra health mỗi 5 phút
+# Cron job to verify backend health every 5 minutes
 */5 * * * * curl -sf http://localhost:8000/api/health || echo "Backend DOWN" | mail -s "Alert" admin@example.com
 ```
 
 ### 6.2 Docker Logs
 
 ```bash
-# Xem logs real-time
+# Real-time backend logs
 docker compose logs -f --tail 100 backend
 
-# Xem logs của tất cả services
+# Logs for all services across the last hour
 docker compose logs --since 1h
 
-# Export logs
+# Export logs to file
 docker compose logs backend > backend_$(date +%Y%m%d).log
 ```
 
-### 6.3 Key Metrics để theo dõi
+### 6.3 Key Metrics to Monitor
 
-| Metric | Cách kiểm tra | Ngưỡng cảnh báo |
-|--------|--------------|-----------------|
-| API response time | Nginx access log | > 5s cho non-streaming |
-| DB connections | `SELECT count(*) FROM pg_stat_activity` | > 80% max_connections |
-| Disk usage (MinIO) | `docker exec raq_minio du -sh /data` | > 80% disk |
-| Ingestion failure rate | Check `documents` WHERE status='failed' | > 5% |
-| Memory usage | `docker stats` | > 80% container limit |
+| Metric | Verification Method | Warning Threshold |
+|--------|---------------------|-------------------|
+| API Response Latency | Nginx access logs | > 5s for non-streaming calls |
+| Database Connections | `SELECT count(*) FROM pg_stat_activity` | > 80% of `max_connections` |
+| MinIO Disk Usage | `docker exec raq_minio du -sh /data` | > 80% disk capacity |
+| Ingestion Failure Rate | Query `documents` WHERE status='failed' | > 5% failure rate |
+| Memory Consumption | `docker stats` | > 80% container memory limit |
 
 ---
 
@@ -462,17 +462,17 @@ docker compose logs backend > backend_$(date +%Y%m%d).log
 ### 7.1 Database Backup
 
 ```bash
-# Backup PostgreSQL
+# Dump PostgreSQL database
 docker exec raq_postgres pg_dump -U postgres raq_chatbot > backup_$(date +%Y%m%d_%H%M%S).sql
 
-# Restore
+# Restore from SQL dump
 cat backup.sql | docker exec -i raq_postgres psql -U postgres raq_chatbot
 ```
 
-### 7.2 MinIO Backup
+### 7.2 MinIO Storage Backup
 
 ```bash
-# Sử dụng mc (MinIO Client)
+# Using MinIO Client (mc)
 mc alias set myraq http://localhost:9000 minioadmin minioadmin
 mc mirror myraq/pdf-storage /path/to/backup/pdf-storage/
 ```
@@ -481,24 +481,24 @@ mc mirror myraq/pdf-storage /path/to/backup/pdf-storage/
 
 ```bash
 #!/bin/bash
-# backup.sh — Chạy hàng ngày qua cron
+# backup.sh — Run daily via cron
 BACKUP_DIR="/backups/raq/$(date +%Y%m%d)"
 mkdir -p $BACKUP_DIR
 
-# DB backup
+# Backup PostgreSQL
 docker exec raq_postgres pg_dump -U postgres raq_chatbot | gzip > $BACKUP_DIR/db.sql.gz
 
-# MinIO backup
+# Mirror MinIO bucket
 mc mirror --overwrite myraq/pdf-storage $BACKUP_DIR/minio/
 
-# Retain 30 days
+# Retain backups for 30 days
 find /backups/raq/ -maxdepth 1 -mtime +30 -type d -exec rm -rf {} \;
 
 echo "Backup completed: $BACKUP_DIR"
 ```
 
 ```cron
-# Cron: 2:00 AM daily
+# Crontab: Run at 2:00 AM daily
 0 2 * * * /scripts/backup.sh >> /var/log/raq_backup.log 2>&1
 ```
 
@@ -506,47 +506,47 @@ echo "Backup completed: $BACKUP_DIR"
 
 ## 8. Troubleshooting
 
-### 8.1 Các lỗi thường gặp
+### 8.1 Frequently Encountered Issues
 
-| Lỗi | Nguyên nhân | Giải pháp |
-|-----|------------|-----------|
-| `Connection refused` (DB) | PostgreSQL chưa ready | Đợi healthcheck pass, kiểm tra `docker compose ps` |
-| `CORS error` trên frontend | `FRONTEND_URL` sai | Kiểm tra biến `FRONTEND_URL` trong backend .env |
-| `Upload failed` | MinIO chưa tạo bucket | Truy cập MinIO Console (9001) tạo bucket `pdf-storage` |
-| `Embedding error 401` | API key sai/hết hạn | Kiểm tra `SYSTEM_DEFAULT_API_KEY` |
-| `429 Resource Exhausted` | Rate limit LLM | Đợi theo thời gian hệ thống báo, hoặc dùng BYOK key |
-| `Document status: failed` | PDF corrupt hoặc embedding lỗi | Xem `ingestion_jobs.error_message`, re-upload |
-| Frontend build lỗi | `NEXT_PUBLIC_API_URL` không set | Set ARG lúc build: `--build-arg NEXT_PUBLIC_API_URL=...` |
+| Issue | Root Cause | Resolution |
+|-------|------------|------------|
+| `Connection refused` (DB) | PostgreSQL container is still initializing | Wait for healthcheck to pass; inspect `docker compose ps` |
+| `CORS error` in frontend | Incorrect `FRONTEND_URL` | Match `FRONTEND_URL` in `backend/.env` with the frontend origin |
+| `Upload failed` | MinIO bucket does not exist | Log in to MinIO Console (:9001) and create bucket `pdf-storage` |
+| `Embedding error 401` | Missing or invalid API key | Verify `SYSTEM_DEFAULT_API_KEY` or provide BYOK key |
+| `429 Resource Exhausted` | LLM provider rate limit exceeded | Wait for the indicated cooldown or provide a personal BYOK key |
+| `Document status: failed` | Corrupted PDF or model timeout | Check `ingestion_jobs.error_message` and retry document upload |
+| Frontend build error | Missing `NEXT_PUBLIC_API_URL` | Supply `--build-arg NEXT_PUBLIC_API_URL=...` during image build |
 
 ### 8.2 Debug Commands
 
 ```bash
-# Kiểm tra database connection
+# Test PostgreSQL connection
 docker exec -it raq_postgres psql -U postgres -d raq_chatbot -c "SELECT count(*) FROM users;"
 
-# Kiểm tra MinIO
+# Inspect MinIO bucket contents
 docker exec -it raq_minio mc ls local/pdf-storage/
 
-# Kiểm tra backend logs chi tiết
+# Search for backend exceptions
 docker compose logs backend 2>&1 | grep "Error"
 
-# Kiểm tra network giữa containers
+# Verify container connectivity
 docker exec -it raq_backend ping postgres
 docker exec -it raq_backend ping minio
 
-# Restart một service cụ thể
+# Restart specific service
 docker compose restart backend
 
-# Rebuild và restart
+# Rebuild and restart backend
 docker compose up --build -d backend
 ```
 
-### 8.3 Reset toàn bộ dữ liệu
+### 8.3 Reset All Data
 
 ```bash
-# ⚠️ CẢNH BÁO: Xóa toàn bộ dữ liệu
+# ⚠️ CAUTION: Irreversibly purges all data
 docker compose down -v
 docker compose up --build -d
 ```
 
-> Lệnh `-v` xóa tất cả Docker volumes (PostgreSQL data + MinIO files). Schema sẽ tự tạo lại từ `sql/init.sql`.
+> The `-v` flag deletes all Docker volumes (PostgreSQL records + MinIO files). Database schemas will re-initialize automatically from `sql/init.sql`.

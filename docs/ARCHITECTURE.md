@@ -1,40 +1,40 @@
-# 🏗️ ARCHITECTURE.md — Kiến trúc Hệ thống RAQ Chatbot
+# 🏗️ ARCHITECTURE.md — RAQ Chatbot System Architecture
 
 ---
 
-## 📑 Mục lục
+## 📑 Table of Contents
 
-- [1. Tổng quan kiến trúc](#1-tổng-quan-kiến-trúc)
-- [2. Sơ đồ kiến trúc tổng thể](#2-sơ-đồ-kiến-trúc-tổng-thể)
+- [1. Architecture Overview](#1-architecture-overview)
+- [2. High-Level Architecture Diagram](#2-high-level-architecture-diagram)
 - [3. Frontend Architecture](#3-frontend-architecture)
 - [4. Backend Architecture](#4-backend-architecture)
 - [5. AI Engine — Multi-Agent Graph](#5-ai-engine--multi-agent-graph)
-- [6. Database Schema (9 bảng)](#6-database-schema-9-bảng)
-- [7. Luồng xử lý dữ liệu chính](#7-luồng-xử-lý-dữ-liệu-chính)
-- [8. Cơ chế bảo mật](#8-cơ-chế-bảo-mật)
-- [9. Thiết kế BYOK (Bring Your Own Key)](#9-thiết-kế-byok-bring-your-own-key)
+- [6. Database Schema (9 Tables)](#6-database-schema-9-tables)
+- [7. Core Data Flows](#7-core-data-flows)
+- [8. Security Architecture](#8-security-architecture)
+- [9. BYOK (Bring Your Own Key) Design](#9-byok-bring-your-own-key-design)
 
 ---
 
-## 1. Tổng quan kiến trúc
+## 1. Architecture Overview
 
-RAQ Chatbot được thiết kế theo kiến trúc **Client-Server 3 tầng** (Three-tier):
+RAQ Chatbot is architected as a **Three-tier Client-Server** application:
 
-| Tầng | Công nghệ | Vai trò |
-|------|-----------|---------|
-| **Presentation** | Next.js 16 (App Router) + React 19 | SPA, SSE streaming, BYOK UI |
-| **Application** | FastAPI (Python async) + LangGraph | REST API, Agent orchestration |
-| **Data** | PostgreSQL 16 + pgvector + MinIO | Relational data + vector store + file storage |
+| Tier | Technology | Responsibility |
+|------|------------|----------------|
+| **Presentation** | Next.js 16 (App Router) + React 19 | Single Page Application (SPA), SSE streaming, BYOK configuration UI |
+| **Application** | FastAPI (Python async) + LangGraph | REST API, Multi-Agent workflow orchestration, background processing |
+| **Data** | PostgreSQL 16 + pgvector + MinIO | Relational records + vector store + object/file storage |
 
-**Nguyên tắc thiết kế:**
-- **Multi-tenant isolation**: Mỗi user sở hữu library riêng, dữ liệu hoàn toàn cách ly qua `user_id` filter trên mọi query.
-- **Async-first**: Backend sử dụng `asyncpg`, `AsyncSession`, `asyncio.create_task` cho non-blocking I/O.
-- **Mock-first development**: Chế độ `USE_MOCK_LLM=true` cho phép phát triển/test mà không cần API key thật.
-- **Stateless API**: Backend không giữ state trong memory (trừ event queue tạm thời cho SSE stream).
+**Core Design Principles:**
+- **Multi-tenant isolation**: Every user owns independent libraries; data isolation is strictly enforced via `user_id` filtering on all queries.
+- **Async-first**: The backend utilizes `asyncpg`, `AsyncSession`, and `asyncio.create_task` for non-blocking I/O.
+- **Mock-first development**: The `USE_MOCK_LLM=true` flag enables complete end-to-end development, testing, and grading without external API keys.
+- **Stateless API**: The backend stores no in-memory state across requests (except transient asyncio queues during active SSE streaming).
 
 ---
 
-## 2. Sơ đồ kiến trúc tổng thể
+## 2. High-Level Architecture Diagram
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -101,9 +101,9 @@ RAQ Chatbot được thiết kế theo kiến trúc **Client-Server 3 tầng** (
 
 ## 3. Frontend Architecture
 
-### 3.1 Kiến trúc tổng quan
+### 3.1 Overview
 
-Frontend sử dụng **Next.js 16 App Router** với React 19, TailwindCSS v4, và Vercel AI SDK.
+The frontend is built on **Next.js 16 App Router** with React 19, TailwindCSS v4, and Vercel AI SDK principles.
 
 ```
 src/
@@ -132,10 +132,10 @@ src/
     └── auth-context.tsx        # JWT token management context
 ```
 
-### 3.2 Luồng xử lý Chat (SSE Streaming)
+### 3.2 Chat SSE Streaming Flow
 
 ```
-User nhập câu hỏi
+User submits question
     │
     ▼
 ChatWindow.tsx
@@ -143,24 +143,24 @@ ChatWindow.tsx
     │  Headers: Authorization, X-Gemini-Key, X-Openai-Key, ...
     │
     ▼
-SSE Stream nhận về:
+SSE Stream parsed in real-time:
     ├── <!--EVENT:{...}-->     → Real-time status (searching, quiz_batch, quiz_ready)
-    ├── text chunks            → Hiển thị từng từ (word-by-word streaming)
-    └── <!--METADATA_START--> → Citations, quiz_id (cuối stream)
+    ├── text chunks            → Word-by-word streaming rendering
+    └── <!--METADATA_START--> → Citations, quiz_id (at stream end)
 ```
 
 ### 3.3 State Management
 
-- **Auth state**: `AuthContext` (React Context) → lưu JWT token vào `localStorage`
-- **Chat state**: `useChat` custom hook → quản lý messages, streaming state, event queue
-- **Library/Document state**: Local state trong page components, fetch trực tiếp từ API
-- **Quiz state**: Nhận quiz_id từ SSE event → fetch quiz detail từ `/api/quizzes/:id`
+- **Auth state**: `AuthContext` (React Context) → persists JWT token in `localStorage`.
+- **Chat state**: `useChat` custom hook → manages messages, streaming flags, and event queues.
+- **Library / Document state**: Local page component state, synchronized via API queries.
+- **Quiz state**: Receives `quiz_id` via SSE event → fetches full quiz details from `/api/quizzes/:id`.
 
 ---
 
 ## 4. Backend Architecture
 
-### 4.1 Cấu trúc module
+### 4.1 Module Structure
 
 ```
 app/
@@ -184,38 +184,39 @@ app/
 ### 4.2 Dependency Injection
 
 ```python
-# Mọi route đều inject 2 dependencies chính:
+# Every protected route injects two primary dependencies:
 async def endpoint(
     db: AsyncSession = Depends(get_db),           # Database session
-    current_user: User = Depends(get_current_user) # JWT auth
+    current_user: User = Depends(get_current_user) # JWT authentication
 ):
 ```
 
-- `get_db()`: Yield một `AsyncSession` từ `AsyncSessionLocal`, auto-close sau request.
-- `get_current_user()`: Decode JWT từ header `Authorization: Bearer <token>`, trả về `User` ORM object.
+- `get_db()`: Yields an `AsyncSession` from `AsyncSessionLocal`, ensuring automatic session cleanup.
+- `get_current_user()`: Decodes the JWT from the `Authorization: Bearer <token>` header, returning the authenticated `User` ORM entity.
 
-### 4.3 Background Processing
+### 4.3 Background Ingestion Processing
 
-Upload PDF sử dụng `asyncio.create_task()` để chạy ingestion pipeline nền:
+Document ingestion runs asynchronously via `asyncio.create_task()`:
+
 ```
-Upload request → save to DB + MinIO → response 201
-                                    ↓ (background)
-                              _run_ingestion()
-                                    │
-                              ingest_document()
-                              ├── Extract pages (PyMuPDF)
-                              ├── Chunk text (1000 chars, 150 overlap)
-                              ├── Generate embeddings (batch 50)
-                              └── Store in document_chunks
+Upload request → save metadata to DB + file to MinIO → return 201 Created
+                                                        ↓ (background task)
+                                                  _run_ingestion()
+                                                        │
+                                                  ingest_document()
+                                                  ├── Extract pages (PyMuPDF)
+                                                  ├── Split chunks (1000 chars, 150 overlap)
+                                                  ├── Compute embeddings (batch 50)
+                                                  └── Store in document_chunks table
 ```
 
 ---
 
 ## 5. AI Engine — Multi-Agent Graph
 
-### 5.1 Main Agent Graph (Supervisor ReAct)
+### 5.1 Main Agent Graph (Supervisor ReAct Loop)
 
-Hệ thống AI sử dụng **LangGraph StateGraph** với mô hình **ReAct** (Reasoning + Acting):
+The core AI engine uses a **LangGraph StateGraph** implementing the **ReAct** (Reasoning + Acting) pattern:
 
 ```
                     ┌─────────────────┐
@@ -244,42 +245,43 @@ Hệ thống AI sử dụng **LangGraph StateGraph** với mô hình **ReAct** (
 ```
 
 **AgentState** (TypedDict):
-| Field | Type | Mô tả |
-|-------|------|--------|
-| `messages` | `list[BaseMessage]` | Lịch sử hội thoại LangChain |
-| `library_id` | `str` | ID thư viện hiện tại |
-| `session_id` | `str` | ID phiên chat |
-| `user_id` | `str` | ID người dùng |
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `messages` | `list[BaseMessage]` | LangChain conversation history |
+| `library_id` | `str` | Active library ID |
+| `session_id` | `str` | Active chat session ID |
+| `user_id` | `str` | Authenticated user ID |
 | `api_keys` | `dict` | BYOK keys (gemini, openai, anthropic, default) |
-| `model_config` | `dict` | Model names cho từng role |
-| `citations` | `list[dict]` | Trích dẫn từ search_documents |
-| `quiz_draft` | `list[dict]` | Bộ câu hỏi đã sinh |
-| `event_queue` | `asyncio.Queue` | Queue gửi SSE events real-time |
+| `model_config` | `dict` | Selected model identifiers per agent role |
+| `citations` | `list[dict]` | Citations retrieved by search_documents |
+| `quiz_draft` | `list[dict]` | Quiz questions generated |
+| `event_queue` | `asyncio.Queue` | Real-time SSE event queue |
 
 ### 5.2 Tool: search_documents (RAG + HyDE)
 
 ```
-User query: "Giải thích nguyên lý hoạt động của transistor"
+User query: "Explain the operating principle of a transistor"
     │
     ▼
 ┌── HyDE (Hypothetical Document Embeddings) ───────────────┐
-│  LLM sinh 2 câu trả lời giả định:                       │
-│  • "Transistor hoạt động dựa trên nguyên lý bán dẫn..."  │
-│  • "Cấu trúc BJT gồm 3 lớp bán dẫn P-N-P hoặc N-P-N.." │
+│  LLM generates 2 hypothetical answers:                   │
+│  • "A transistor operates based on semiconductor physics"│
+│  • "The BJT structure features 3 alternating P/N layers" │
 └──────────────────────────────────────────────────────────┘
     │
-    ▼ Embed query gốc + 2 hypothetical answers (tổng 3 vectors)
+    ▼ Compute embeddings for original query + 2 answers (3 vectors total)
     │
-    ▼ pgvector cosine similarity (1 - embedding <=> query)
+    ▼ pgvector cosine similarity search (1 - embedding <=> query)
     │
-    ▼ Deduplicate by chunk_id, lấy max score
+    ▼ Deduplicate results by chunk_id, retaining maximum score
     │
     ▼ Return top-20 chunks + citations
 ```
 
 ### 5.3 Tool: generate_quiz (Multi-Agent Subgraph)
 
-Quiz Subgraph là một **StateGraph lồng** (nested graph) với 4 nodes và vòng lặp phản biện (reflection loop):
+The quiz generator operates as a **nested StateGraph** comprising 4 nodes and a reflection/critique loop:
 
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
@@ -287,40 +289,40 @@ Quiz Subgraph là một **StateGraph lồng** (nested graph) với 4 nodes và v
 │                                                                      │
 │  ┌───────┐    ┌───────────┐    ┌───────────┐    ┌─────────────┐     │
 │  │ init  │───▶│ generator │───▶│ evaluator │───▶│ synthesizer │     │
-│  │(plan) │    │  (sinh)   │    │ (đánh giá)│    │ (tổng hợp)  │     │
+│  │(plan) │    │  (draft)  │    │(critique) │    │  (merge)    │     │
 │  └───────┘    └─────┬─────┘    └─────┬─────┘    └──────┬──────┘     │
 │                     ▲                │                  │            │
-│                     │          rejected (≤2 lần)        │            │
+│                     │          rejected (≤2 retries)    │            │
 │                     └────────────────┘                  │            │
 │                                                         │            │
 │               ┌─────────────────────────────────────────┘            │
 │               │                                                      │
 │         has_more_batches?                                            │
-│         ├── yes → generator (batch tiếp theo)                        │
+│         ├── yes → generator (next batch)                             │
 │         └── no  → END                                                │
 └──────────────────────────────────────────────────────────────────────┘
 ```
 
-**Chi tiết các node:**
+**Node Responsibilities:**
 
-| Node | Vai trò | Input | Output |
-|------|---------|-------|--------|
-| **init** | Lập kế hoạch batch, phân chia khía cạnh kiến thức (Structured LLM) | `num_questions`, `focus_topic` | `total_batches`, `aspect_hints[]` |
-| **generator** | Sinh câu hỏi trắc nghiệm theo aspect_hint của batch hiện tại | context_chunks (HyDE search), aspect_hint | `draft_questions[]` |
-| **evaluator** | Đánh giá chất lượng câu hỏi (approved/rejected + feedback) | `draft_questions[]` | `eval_feedback`, `eval_details` |
-| **synthesizer** | Lọc câu hỏi đạt yêu cầu, gửi SSE `quiz_batch` event | `draft_questions[]`, `eval_feedback` | `accepted_questions[]` (append) |
+| Node | Role | Input | Output |
+|------|------|-------|--------|
+| **init** | Batch planning, dividing topics into aspects (Structured LLM) | `num_questions`, `focus_topic` | `total_batches`, `aspect_hints[]` |
+| **generator** | Generates draft quiz questions based on aspect hints | context_chunks (HyDE search), aspect_hint | `draft_questions[]` |
+| **evaluator** | Evaluates question clarity, accuracy, and options | `draft_questions[]` | `eval_feedback`, `eval_details` |
+| **synthesizer** | Filters passing questions, dispatches SSE `quiz_batch` event | `draft_questions[]`, `eval_feedback` | `accepted_questions[]` (appended) |
 
-**Quy tắc flow:**
-- Evaluator rejected → generator regenerate (tối đa 2 lần retry/batch)
-- Evaluator approved hoặc max retries → synthesizer
-- Synthesizer xong batch → kiểm tra `has_more_batches`:
+**Flow Execution Rules:**
+- Evaluator rejects → generator re-runs with critique feedback (maximum 2 retries per batch).
+- Evaluator approves OR max retries reached → synthesizer absorbs questions.
+- Synthesizer completes batch → checks `has_more_batches`:
   - `current_batch >= total_batches` → END
   - `len(accepted_questions) >= num_questions` → END
-  - Còn → tiếp tục generator cho batch tiếp
+  - Remaining batches → routes back to generator for the next batch.
 
 ---
 
-## 6. Database Schema (9 bảng)
+## 6. Database Schema (9 Tables)
 
 ### 6.1 Entity Relationship Diagram (ERD)
 
@@ -411,25 +413,25 @@ Quiz Subgraph là một **StateGraph lồng** (nested graph) với 4 nodes và v
                                         └────────────────┘
 ```
 
-### 6.2 Sơ đồ tương tác
+### 6.2 Interactive Schema Diagram
 
-> 📎 Mở file [db.html](./db.html) trong trình duyệt để xem ERD tương tác với dây nối quan hệ 1-N động, hover highlight và đầy đủ thuộc tính của 9 bảng.
+> 📎 Open [db.html](./db.html) directly in any web browser to explore the interactive ERD featuring dynamic Bezier connector lines, hover highlighting, and complete attribute specifications across all 9 tables.
 
-### 6.3 Mô tả chi tiết các bảng
+### 6.3 Detailed Table Descriptions
 
-| # | Bảng | Mô tả | Quan hệ |
-|---|------|--------|---------|
-| 1 | `users` | Người dùng (email unique, bcrypt hash) | 1:N → libraries |
-| 2 | `libraries` | Thư viện tài liệu (multi-tenant) | N:1 → users, 1:N → documents, sessions, quizzes |
-| 3 | `documents` | File PDF đã upload | N:1 → libraries, 1:1 → ingestion_jobs, 1:N → chunks |
-| 4 | `ingestion_jobs` | Tiến trình xử lý PDF (progress tracking) | 1:1 → documents |
-| 5 | `document_chunks` | Chunk text + vector embedding (2048 dims) | N:1 → documents, libraries |
-| 6 | `chat_sessions` | Phiên hội thoại trong thư viện | N:1 → libraries, 1:N → messages |
-| 7 | `chat_messages` | Tin nhắn (user/assistant, citations JSONB) | N:1 → sessions, N:1 → quizzes |
-| 8 | `quizzes` | Bộ đề trắc nghiệm | N:1 → libraries, 1:N → questions |
-| 9 | `quiz_questions` | Câu hỏi trắc nghiệm (4 lựa chọn A/B/C/D) | N:1 → quizzes |
+| # | Table | Description | Relationships |
+|---|-------|-------------|---------------|
+| 1 | `users` | User accounts (unique email, bcrypt hashed password) | 1:N → libraries |
+| 2 | `libraries` | Document libraries for multi-tenant isolation | N:1 → users, 1:N → documents, sessions, quizzes |
+| 3 | `documents` | Uploaded PDF files and status | N:1 → libraries, 1:1 → ingestion_jobs, 1:N → chunks |
+| 4 | `ingestion_jobs` | Ingestion pipeline progress tracking | 1:1 → documents |
+| 5 | `document_chunks` | Extracted text chunks + 2048-dim vector embeddings | N:1 → documents, libraries |
+| 6 | `chat_sessions` | Chat conversation threads within a library | N:1 → libraries, 1:N → messages |
+| 7 | `chat_messages` | Individual messages (user/assistant, JSONB citations) | N:1 → sessions, N:1 → quizzes |
+| 8 | `quizzes` | Multiple-choice quiz metadata | N:1 → libraries, 1:N → questions |
+| 9 | `quiz_questions` | Multiple-choice questions with 4 options (A/B/C/D) | N:1 → quizzes |
 
-### 6.4 Indexes quan trọng
+### 6.4 Key Indexes
 
 ```sql
 CREATE INDEX idx_libraries_user ON libraries(user_id);
@@ -437,21 +439,21 @@ CREATE INDEX idx_documents_library ON documents(library_id);
 CREATE INDEX idx_chunks_library_user ON document_chunks(library_id, user_id);
 CREATE INDEX idx_questions_quiz ON quiz_questions(quiz_id, order_index);
 CREATE INDEX idx_messages_session ON chat_messages(session_id, created_at);
--- pgvector tự động tạo index cho cột VECTOR(2048)
+-- pgvector indexes manage similarity queries on VECTOR(2048)
 ```
 
 ---
 
-## 7. Luồng xử lý dữ liệu chính
+## 7. Core Data Flows
 
-### 7.1 Luồng Upload & Ingestion
+### 7.1 Upload & Ingestion Flow
 
 ```
 ┌──────┐  POST /api/documents/upload  ┌─────────┐  upload_file()  ┌───────┐
 │ User │ ──────────────────────────▶  │ Backend │ ─────────────▶  │ MinIO │
 └──────┘    (multipart/form-data)     └────┬────┘                 └───────┘
                                            │
-                            asyncio.create_task()
+                                 asyncio.create_task()
                                            │
                                     ┌──────▼──────┐
                                     │  Ingestion  │
@@ -463,11 +465,11 @@ CREATE INDEX idx_messages_session ON chat_messages(session_id, created_at);
                                     │ 4. Store    │── document_chunks
                                     └──────┬──────┘
                                            │
-                              progress tracking via
-                              GET /api/documents/:id/progress
+                               progress tracking via
+                               GET /api/documents/:id/progress
 ```
 
-### 7.2 Luồng Chat (RAG)
+### 7.2 Chat Flow (RAG)
 
 ```
 ┌──────┐  POST /api/chat  ┌─────────┐         ┌─────────────────┐
@@ -498,40 +500,40 @@ CREATE INDEX idx_messages_session ON chat_messages(session_id, created_at);
                           (word-by-word + metadata)
 ```
 
-### 7.3 Luồng Sinh Quiz
+### 7.3 Quiz Generation Flow
 
 ```
-User: "Tạo 20 câu trắc nghiệm về chương 3"
+User: "Generate 20 multiple choice questions on Chapter 3"
     │
     ▼
-Supervisor Agent → gọi tool generate_quiz(num_questions=20, focus_topic="chương 3")
+Supervisor Agent → invokes tool generate_quiz(num_questions=20, focus_topic="Chapter 3")
     │
     ▼
 Quiz Subgraph:
     │
-    ├── init: Phân chia → 1 batch (20 câu ÷ 20/batch = 1 batch)
-    │         Sinh aspect_hints bằng Structured LLM
+    ├── init: Planning → 1 batch (20 questions ÷ 20/batch = 1 batch)
+    │         Generates aspect_hints using Structured LLM
     │
     ├── Batch 1:
-    │   ├── generator: HyDE search → lấy context → LLM sinh 20 câu hỏi
-    │   ├── evaluator: Đánh giá chất lượng → approved/rejected
-    │   │   └── (nếu rejected) → generator lại (max 2 lần)
-    │   └── synthesizer: Lọc câu đạt → gửi SSE quiz_batch event
+    │   ├── generator: HyDE search → retrieve context → LLM generates 20 questions
+    │   ├── evaluator: Quality evaluation → approved / rejected
+    │   │   └── (if rejected) → re-prompt generator with feedback (max 2 retries)
+    │   └── synthesizer: Collects approved questions → dispatches SSE quiz_batch event
     │
     ▼
-Tool return: {quiz_draft: [...20 câu...], message: "Đã sinh xong 20 câu"}
+Tool returns: {quiz_draft: [...20 items...], message: "Successfully generated 20 questions"}
     │
     ▼
 Chat endpoint:
-    ├── Auto-save quiz to DB (quizzes + quiz_questions tables)
-    ├── Gửi SSE event: quiz_ready (quiz_id)
-    ├── Persist assistant message to DB (chat_messages.quiz_id = ...)
-    └── Stream text response + metadata
+    ├── Auto-saves quiz to DB (quizzes + quiz_questions tables)
+    ├── Sends SSE event: quiz_ready (quiz_id)
+    ├── Persists assistant message to DB (chat_messages.quiz_id = ...)
+    └── Streams final text response + metadata
 ```
 
 ---
 
-## 8. Cơ chế bảo mật
+## 8. Security Architecture
 
 ### 8.1 Authentication (JWT)
 
@@ -542,27 +544,28 @@ Login → verify_password → create_access_token(user_id, exp=24h)
                                    HS256 signed JWT
                                         │
                                         ▼
-              Authorization: Bearer <token>
+               Authorization: Bearer <token>
                                         │
-                              decode_access_token()
+                               decode_access_token()
                                         │
-                              get_current_user() dependency
+                               get_current_user() dependency
 ```
 
 ### 8.2 Authorization (Resource Isolation)
 
-Mỗi query đều filter theo `user_id`:
+Every database query is strictly scoped by `user_id`:
+
 ```python
-# Ví dụ: list libraries
+# Example: listing libraries
 select(Library).where(Library.user_id == current_user.id)
 
-# Ví dụ: get document
+# Example: accessing a document
 doc = await db.get(Document, document_id)
 if not doc or doc.user_id != current_user.id:
-    raise HTTPException(404)
+    raise HTTPException(status_code=404, detail="Document not found")
 ```
 
-### 8.3 CORS
+### 8.3 CORS Configuration
 
 ```python
 allow_origins=[settings.FRONTEND_URL, "http://localhost:3000", "http://localhost:3001"]
@@ -573,38 +576,38 @@ allow_credentials=True
 
 ---
 
-## 9. Thiết kế BYOK (Bring Your Own Key)
+## 9. BYOK (Bring Your Own Key) Design
 
-### 9.1 Mô hình 2 tầng (Two-tier Key Resolution)
+### 9.1 Two-Tier Key Resolution Model
 
 ```
                     ┌─────────────────┐
-                    │  User BYOK Key  │  ← Ưu tiên 1 (từ HTTP header)
+                    │  User BYOK Key  │  ← Priority 1 (from HTTP header)
                     │  (per-request)   │
                     └────────┬────────┘
                              │
-                     key tồn tại?
+                      Key present?
                     ┌────yes──┴──no────┐
                     │                  │
              ┌──────▼──────┐  ┌───────▼───────┐
-             │ Dùng key    │  │ System key    │  ← Ưu tiên 2 (từ .env)
-             │ của user    │  │ (.env)        │
+             │ Use user's  │  │ System key    │  ← Priority 2 (from .env)
+             │ key         │  │ (.env)        │
              └─────────────┘  └───────────────┘
 ```
 
-### 9.2 Provider Support
+### 9.2 Supported Providers
 
-| Provider | Header | Models hỗ trợ |
-|----------|--------|---------------|
-| NVIDIA NIM (default) | System-only (.env) | deepseek-v4-pro-0813, deepseek-v4-flash-0731 |
+| Provider | Request Header | Supported Models |
+|----------|----------------|------------------|
+| NVIDIA NIM (Default) | System-only (.env) | deepseek-v4-pro-0813, deepseek-v4-flash-0731 |
 | Google Gemini | `X-Gemini-Key` | gemini-2.5-flash, gemini-3.1-pro |
 | OpenAI | `X-Openai-Key` | gpt-4o, gpt-4o-mini |
 | Anthropic | `X-Anthropic-Key` | claude-3-5-sonnet, claude-3-5-haiku |
 
-### 9.3 Quy tắc phân quyền key
+### 9.3 Key Permission and Scope Rules
 
-| Loại key | User có thể cấu hình? | Mục đích |
-|----------|----------------------|----------|
-| Chat LLM key (gemini/openai/anthropic) | ✅ Có (BYOK) | Cho chat & quiz generation |
-| System default key (NVIDIA NIM) | ❌ Không (admin-only) | Fallback khi user không có key |
-| Embedding key | ❌ Không (admin-only) | Tạo embedding vectors (NVIDIA) |
+| Key Type | User Configurable? | Purpose |
+|----------|-------------------|---------|
+| Chat LLM Key (Gemini/OpenAI/Anthropic) | ✅ Yes (BYOK) | Dedicated chat and quiz generation |
+| System Default Key (NVIDIA NIM) | ❌ No (Server-side) | Fallback when user does not supply a key |
+| Embedding Key | ❌ No (Server-side) | Computes 2048-dim vectors for document chunks |

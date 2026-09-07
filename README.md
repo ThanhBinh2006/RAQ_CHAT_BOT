@@ -1,49 +1,49 @@
 # 📚 RAQ Chatbot — Retrieval-Augmented Quiz Generation Platform
 
-> **Nền tảng Chatbot học tập thông minh** tích hợp kỹ thuật RAG (Retrieval-Augmented Generation) và hệ thống Multi-Agent AI để tự động tạo đề thi trắc nghiệm bám sát tài liệu PDF do người dùng tải lên.
+> **Intelligent Study Chatbot Platform** integrating RAG (Retrieval-Augmented Generation) and a Multi-Agent AI system to automatically generate multiple-choice quizzes strictly grounded in user-uploaded PDF documents.
 
 ---
 
-## 📑 Mục lục
+## 📑 Table of Contents
 
-- [1. Giới thiệu bài toán](#1-giới-thiệu-bài-toán)
-- [2. Stack công nghệ](#2-stack-công-nghệ)
-- [3. Yêu cầu môi trường](#3-yêu-cầu-môi-trường)
-- [4. Biến môi trường](#4-biến-môi-trường)
-- [5. Khởi chạy dự án](#5-khởi-chạy-dự-án)
-  - [5.1 Chạy Local (Dev Mode)](#51-chạy-local-dev-mode)
-  - [5.2 Chạy bằng Docker Compose (toàn bộ)](#52-chạy-bằng-docker-compose-toàn-bộ)
-- [6. Tài liệu bổ sung](#6-tài-liệu-bổ-sung)
-- [7. Cấu trúc thư mục](#7-cấu-trúc-thư-mục)
-
----
-
-## 1. Giới thiệu bài toán
-
-**RAQ Chatbot** giải quyết bài toán hỗ trợ học tập cá nhân hóa:
-
-| Vấn đề | Giải pháp RAQ |
-|--------|---------------|
-| Đọc tài liệu PDF dài, không biết bắt đầu từ đâu | Upload PDF → chatbot tự trích xuất, lập chỉ mục vector |
-| Tự kiểm tra kiến thức khó khăn | Multi-Agent AI tự động sinh đề trắc nghiệm bám sát tài liệu |
-| Cần tra cứu nhanh nội dung tài liệu | HyDE RAG search với trích dẫn nguồn (số trang, tên file) |
-| Đề thi chất lượng không đồng đều | Quy trình Generator → Evaluator → Synthesizer với vòng lặp phản biện |
-
-**Tính năng chính:**
-- 🔐 Hệ thống đa người dùng (Multi-tenant) với JWT authentication
-- 📂 Tổ chức tài liệu theo Thư viện (Library) độc lập
-- 📤 Upload PDF → tự động trích xuất text, chia chunk, tạo embedding vector (2048 dims)
-- 💬 Chat AI bám sát tài liệu với kỹ thuật HyDE (Hypothetical Document Embeddings)
-- 📝 Sinh đề trắc nghiệm tự động theo batch (Generator → Evaluator → Synthesizer)
-- ✏️ Chỉnh sửa đề thi inline, xuất PDF
-- ⚙️ BYOK (Bring Your Own Key) — hỗ trợ Gemini, OpenAI, Anthropic
+- [1. Problem Statement](#1-problem-statement)
+- [2. Technology Stack](#2-technology-stack)
+- [3. Environment Requirements](#3-environment-requirements)
+- [4. Environment Variables](#4-environment-variables)
+- [5. Getting Started](#5-getting-started)
+  - [5.1 Local Run (Dev Mode)](#51-local-run-dev-mode)
+  - [5.2 Full Docker Compose Run](#52-full-docker-compose-run)
+- [6. Additional Documentation](#6-additional-documentation)
+- [7. Directory Structure](#7-directory-structure)
 
 ---
 
-## 2. Stack công nghệ
+## 1. Problem Statement
 
-| Layer | Công nghệ | Phiên bản |
-|-------|-----------|-----------|
+**RAQ Chatbot** solves key challenges in personalized learning and exam preparation:
+
+| Challenge | RAQ Solution |
+|-----------|--------------|
+| Long, dense PDF documents where students don't know where to start | Upload PDF → automated text extraction, chunking, and vector indexing |
+| Difficulty self-testing knowledge retention | Multi-Agent AI automatically generates multiple-choice quizzes grounded in document content |
+| Need for fast document retrieval and fact verification | HyDE RAG search with precise source citations (page number, file name) |
+| Inconsistent quiz quality and hallucinations | Generator → Evaluator → Synthesizer workflow with reflection and critique loop |
+
+**Key Features:**
+- 🔐 Multi-tenant user isolation with JWT authentication
+- 📂 Independent document organization via Libraries
+- 📤 PDF Upload → automated text extraction, chunking, and 2048-dim vector embeddings
+- 💬 Grounded AI chat using HyDE (Hypothetical Document Embeddings)
+- 📝 Automated batch quiz generation (Generator → Evaluator → Synthesizer)
+- ✏️ Inline quiz editing and PDF export
+- ⚙️ BYOK (Bring Your Own Key) — support for Gemini, OpenAI, and Anthropic
+
+---
+
+## 2. Technology Stack
+
+| Layer | Technology | Version |
+|-------|------------|---------|
 | **Frontend** | Next.js (App Router), React, TailwindCSS v4, Vercel AI SDK | Next 16.x, React 19.x |
 | **Backend** | FastAPI (Python, Async) | 0.115+ |
 | **AI Engine** | LangChain + LangGraph (Multi-Agent StateGraph) | LangChain 0.3.x, LangGraph 0.2.x |
@@ -51,61 +51,61 @@
 | **Object Storage** | MinIO (S3-compatible) | Latest |
 | **PDF Processing** | PyMuPDF (fitz) | 1.24+ |
 | **Embedding** | NVIDIA NeMo Retriever / Nemotron-3-Embed-1B | 2048 dims |
-| **LLM mặc định** | DeepSeek V4 Pro (qua NVIDIA NIM) | deepseek-v4-pro-0813 |
+| **Default LLM** | DeepSeek V4 Pro (via NVIDIA NIM) | deepseek-v4-pro-0813 |
 | **Auth** | JWT (python-jose), bcrypt | HS256, 24h TTL |
 
 ---
 
-## 3. Yêu cầu môi trường
+## 3. Environment Requirements
 
-### Phần cứng tối thiểu
-| Tài nguyên | Yêu cầu |
-|-----------|---------|
-| RAM | ≥ 8 GB (khuyến nghị 16 GB cho Docker) |
-| Dung lượng đĩa | ≥ 10 GB trống |
-| CPU | 4 cores trở lên |
+### Minimum Hardware
+| Resource | Requirement |
+|----------|-------------|
+| RAM | ≥ 8 GB (16 GB recommended for Docker) |
+| Disk Space | ≥ 10 GB free space |
+| CPU | 4 cores or higher |
 
-### Phần mềm bắt buộc
-| Phần mềm | Phiên bản tối thiểu | Ghi chú |
-|----------|---------------------|---------|
-| **Node.js** | ≥ 20.x | Cho frontend Next.js |
-| **Python** | ≥ 3.11 | Cho backend FastAPI |
-| **Docker** | ≥ 24.x | Cho Docker Compose mode |
-| **Docker Compose** | ≥ 2.20 | Plugin V2 (tích hợp Docker) |
-| **Git** | ≥ 2.40 | Clone repository |
+### Required Software
+| Software | Minimum Version | Notes |
+|----------|-----------------|-------|
+| **Node.js** | ≥ 20.x | For Next.js frontend |
+| **Python** | ≥ 3.11 | For FastAPI backend |
+| **Docker** | ≥ 24.x | For Docker Compose mode |
+| **Docker Compose** | ≥ 2.20 | Plugin V2 (Docker integrated) |
+| **Git** | ≥ 2.40 | Repository cloning |
 
 ---
 
-## 4. Biến môi trường
+## 4. Environment Variables
 
-Sao chép file mẫu và cấu hình các biến:
+Copy the template configuration file and adjust variables as needed:
 
 ```bash
 cp backend/.env.example backend/.env
 ```
 
-| Biến | Mô tả | Giá trị mặc định |
-|------|--------|-------------------|
-| `DATABASE_URL` | Connection string PostgreSQL (async) | `postgresql+asyncpg://postgres:postgres@localhost:5432/raq_chatbot` |
-| `MINIO_ENDPOINT` | Địa chỉ MinIO server | `localhost:9000` |
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `DATABASE_URL` | PostgreSQL connection string (async) | `postgresql+asyncpg://postgres:postgres@localhost:5432/raq_chatbot` |
+| `MINIO_ENDPOINT` | MinIO server address | `localhost:9000` |
 | `MINIO_ACCESS_KEY` | MinIO access key | `minioadmin` |
 | `MINIO_SECRET_KEY` | MinIO secret key | `minioadmin` |
-| `MINIO_BUCKET_NAME` | Tên bucket lưu PDF | `pdf-storage` |
-| `MINIO_USE_SSL` | Dùng SSL cho MinIO | `false` |
-| `JWT_SECRET_KEY` | Khóa bí mật ký JWT | ⚠️ **Đổi trong production** |
-| `JWT_ALGORITHM` | Thuật toán ký JWT | `HS256` |
-| `JWT_EXPIRE_MINUTES` | Thời gian hết hạn token (phút) | `1440` (24 giờ) |
-| `SYSTEM_DEFAULT_API_KEY` | API key hệ thống cho LLM (NVIDIA NIM) | *(bắt buộc khi `USE_MOCK_LLM=false`)* |
-| `SYSTEM_DEFAULT_EMBEDDING_KEY` | API key riêng cho embedding model | *(nếu không set → dùng `SYSTEM_DEFAULT_API_KEY`)* |
-| `SYSTEM_DEFAULT_API_BASE` | Base URL cho LLM API | `https://integrate.api.nvidia.com/v1` |
-| `DEFAULT_CHAT_MODEL` | Model LLM mặc định cho chat/quiz | `deepseek-ai/deepseek-v4-pro-0813` |
-| `DEFAULT_EMBEDDING_MODEL` | Model embedding mặc định | `nvidia/nemotron-3-embed-1b` |
-| `USE_MOCK_LLM` | Chế độ mock (không cần API key thật) | `true` |
-| `FRONTEND_URL` | URL frontend cho CORS | `http://localhost:3000` |
+| `MINIO_BUCKET_NAME` | S3 bucket name for PDF storage | `pdf-storage` |
+| `MINIO_USE_SSL` | Enable SSL for MinIO | `false` |
+| `JWT_SECRET_KEY` | Secret key for JWT signing | ⚠️ **Change in production** |
+| `JWT_ALGORITHM` | JWT signing algorithm | `HS256` |
+| `JWT_EXPIRE_MINUTES` | Token expiration time (minutes) | `1440` (24 hours) |
+| `SYSTEM_DEFAULT_API_KEY` | System fallback API key for LLM (NVIDIA NIM) | *(required when `USE_MOCK_LLM=false`)* |
+| `SYSTEM_DEFAULT_EMBEDDING_KEY` | Dedicated API key for embedding model | *(falls back to `SYSTEM_DEFAULT_API_KEY` if unset)* |
+| `SYSTEM_DEFAULT_API_BASE` | Base URL for LLM API | `https://integrate.api.nvidia.com/v1` |
+| `DEFAULT_CHAT_MODEL` | Default LLM model for chat/quiz | `deepseek-ai/deepseek-v4-pro-0813` |
+| `DEFAULT_EMBEDDING_MODEL` | Default embedding model | `nvidia/nemotron-3-embed-1b` |
+| `USE_MOCK_LLM` | Mock mode (no real API key required) | `true` |
+| `FRONTEND_URL` | Frontend origin for CORS | `http://localhost:3000` |
 
-> **📌 Lưu ý**: Ở chế độ `USE_MOCK_LLM=true`, hệ thống sẽ hoạt động bình thường mà **không cần API key thật** — embedding tạo bằng hash, LLM trả phản hồi mock. Phù hợp để demo, phát triển và chấm điểm.
+> **📌 Note**: Under `USE_MOCK_LLM=true` mode, the entire platform runs without needing **any real API keys** — embeddings are computed deterministically via hash algorithms, and LLM queries return simulated responses. This is ideal for demonstrations, offline testing, and grading.
 
-Frontend sử dụng biến môi trường:
+Frontend configuration file:
 
 ```env
 # frontend/.env.local
@@ -114,64 +114,64 @@ NEXT_PUBLIC_API_URL=http://localhost:8000
 
 ---
 
-## 5. Khởi chạy dự án
+## 5. Getting Started
 
-### 5.1 Chạy Local (Dev Mode)
+### 5.1 Local Run (Dev Mode)
 
-**Bước 1: Clone repository**
+**Step 1: Clone the repository**
 ```bash
 git clone <repository-url>
 cd RAQ_CHAT_BOT
 ```
 
-**Bước 2: Khởi động PostgreSQL + MinIO (Docker)**
+**Step 2: Start PostgreSQL + MinIO (Docker)**
 ```bash
 docker compose up -d postgres minio
 ```
-> Chờ khoảng 10-15s để services healthy. Database schema sẽ tự động được khởi tạo từ `sql/init.sql`.
+> Wait approximately 10-15 seconds for services to become healthy. Database schema will automatically initialize from `sql/init.sql`.
 
-**Bước 3: Cài đặt Backend**
+**Step 3: Setup Backend**
 ```bash
 cd backend
 python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
-cp .env.example .env      # Chỉnh sửa .env nếu cần
+cp .env.example .env      # Edit .env if needed
 ```
 
-**Bước 4: Khởi chạy Backend**
+**Step 4: Launch Backend**
 ```bash
 uvicorn app.main:app --reload --port 8000
 ```
-> Backend sẵn sàng tại `http://localhost:8000`
-> API docs: `http://localhost:8000/docs`
+> Backend API: `http://localhost:8000`
+> Swagger Docs: `http://localhost:8000/docs`
 
-**Bước 5: Cài đặt Frontend**
+**Step 5: Setup Frontend**
 ```bash
 cd ../frontend
 npm install
 ```
 
-**Bước 6: Khởi chạy Frontend**
+**Step 6: Launch Frontend**
 ```bash
 npm run dev
 ```
-> Frontend sẵn sàng tại `http://localhost:3000`
+> Frontend Application: `http://localhost:3000`
 
 ---
 
-### 5.2 Chạy bằng Docker Compose (toàn bộ)
+### 5.2 Full Docker Compose Run
 
-**Khởi chạy toàn bộ 4 services:**
+**Start all 4 services:**
 ```bash
-# Tạo file .env cho backend (nếu chưa có)
+# Create backend .env file (if not already created)
 cp backend/.env.example backend/.env
 
-# Build và chạy
+# Build and start containers
 docker compose up --build -d
 ```
 
-**Kiểm tra trạng thái:**
+**Check service status:**
 ```bash
 docker compose ps
 docker compose logs -f backend
@@ -185,26 +185,26 @@ docker compose logs -f backend
 | MinIO Console | http://localhost:9001 |
 | PostgreSQL | localhost:5432 |
 
-**Dừng toàn bộ:**
+**Stop services:**
 ```bash
-docker compose down          # Giữ data
-docker compose down -v       # Xóa cả volumes (mất dữ liệu)
+docker compose down          # Preserve database volumes
+docker compose down -v       # Remove volumes (erases all data)
 ```
 
 ---
 
-## 6. Tài liệu bổ sung
+## 6. Additional Documentation
 
-| File | Nội dung |
-|------|----------|
-| [ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Kiến trúc hệ thống, sơ đồ luồng dữ liệu, thiết kế Agent Graph |
-| [API.md](./docs/API.md) | Đặc tả API RESTful chi tiết (endpoint, request/response, mã lỗi) |
-| [USECASES.md](./docs/USECASES.md) | Đặc tả Use Case theo Cockburn (UC-01 → UC-08) |
-| [DEPLOYMENT.md](./docs/DEPLOYMENT.md) | Hướng dẫn triển khai production, Docker, giám sát |
+| Document | Content Description |
+|----------|---------------------|
+| [ARCHITECTURE.md](./docs/ARCHITECTURE.md) | System architecture, data flow diagrams, Multi-Agent Graph design |
+| [API.md](./docs/API.md) | Complete RESTful API specifications (endpoints, requests/responses, status codes) |
+| [USECASES.md](./docs/USECASES.md) | Fully-dressed Cockburn Use Case specifications (UC-01 → UC-08) |
+| [DEPLOYMENT.md](./docs/DEPLOYMENT.md) | Production deployment guide, Docker strategies, monitoring, backup |
 
 ---
 
-## 7. Cấu trúc thư mục
+## 7. Directory Structure
 
 ```
 RAQ_CHAT_BOT/
@@ -222,9 +222,9 @@ RAQ_CHAT_BOT/
 │   │   │               ├── subgraph.py            # StateGraph (batch + reflection)
 │   │   │               ├── state.py / schemas.py  # Quiz state & Pydantic schemas
 │   │   │               └── nodes/
-│   │   │                   ├── generator_node.py   # Sinh câu hỏi
-│   │   │                   ├── evaluator_node.py   # Đánh giá chất lượng
-│   │   │                   └── synthesizer_node.py # Tổng hợp batch
+│   │   │                   ├── generator_node.py   # Question generation
+│   │   │                   ├── evaluator_node.py   # Quality evaluation
+│   │   │                   └── synthesizer_node.py # Batch synthesis
 │   │   ├── api/
 │   │   │   ├── deps.py             # Dependency injection (DB session, auth)
 │   │   │   └── routes/
@@ -282,6 +282,5 @@ RAQ_CHAT_BOT/
 ├── sql/
 │   └── init.sql                # Database schema (9 tables, pgvector)
 ├── docker-compose.yml          # All-in-one orchestration
-└── README.md                   # ← Bạn đang ở đây
+└── README.md                   # ← You are here
 ```
-

@@ -1,13 +1,13 @@
-# 📡 API.md — Đặc tả API RESTful
+# 📡 API.md — RESTful API Specification
 
-> Tài liệu đặc tả chi tiết tất cả endpoint API của RAQ Chatbot Backend.
+> Comprehensive API specification for the RAQ Chatbot Backend.
 > Base URL: `http://localhost:8000`
 
 ---
 
-## 📑 Mục lục
+## 📑 Table of Contents
 
-- [1. Quy ước chung](#1-quy-ước-chung)
+- [1. General Conventions](#1-general-conventions)
 - [2. Authentication](#2-authentication)
 - [3. Libraries](#3-libraries)
 - [4. Chat Sessions](#4-chat-sessions)
@@ -15,15 +15,15 @@
 - [6. Chat (Streaming)](#6-chat-streaming)
 - [7. Quizzes](#7-quizzes)
 - [8. Health Check](#8-health-check)
-- [9. Mã lỗi HTTP](#9-mã-lỗi-http)
+- [9. HTTP Status Codes](#9-http-status-codes)
 
 ---
 
-## 1. Quy ước chung
+## 1. General Conventions
 
 ### 1.1 Authentication
 
-Tất cả endpoint (trừ `/api/auth/register`, `/api/auth/login`, `/api/health`) yêu cầu JWT token:
+All endpoints (except `/api/auth/register`, `/api/auth/login`, and `/api/health`) require a valid Bearer JWT token:
 
 ```
 Authorization: Bearer <access_token>
@@ -31,25 +31,25 @@ Authorization: Bearer <access_token>
 
 ### 1.2 Content-Type
 
-| Loại request | Content-Type |
-|-------------|-------------|
-| JSON body | `application/json` |
+| Request / Response Type | Content-Type |
+|-------------------------|--------------|
+| JSON request/response body | `application/json` |
 | File upload | `multipart/form-data` |
-| Chat response | `text/plain` (SSE stream) |
+| Streaming chat response | `text/plain` (SSE stream) |
 
 ### 1.3 UUID Format
 
-Tất cả ID sử dụng UUID v4. Ví dụ: `550e8400-e29b-41d4-a716-446655440000`
+All resource identifiers adhere to UUID v4 format. Example: `550e8400-e29b-41d4-a716-446655440000`
 
 ### 1.4 Timestamp Format
 
-ISO 8601 với timezone: `2024-01-15T10:30:00+00:00`
+Timestamps are formatted according to ISO 8601 with UTC timezone offset: `2024-01-15T10:30:00+00:00`
 
 ---
 
 ## 2. Authentication
 
-### 2.1 Đăng ký tài khoản
+### 2.1 User Registration
 
 ```
 POST /api/auth/register
@@ -75,11 +75,11 @@ POST /api/auth/register
 }
 ```
 
-**Lỗi `409 Conflict`:** Email đã được đăng ký.
+**Error `409 Conflict`:** Email already registered.
 
 ---
 
-### 2.2 Đăng nhập
+### 2.2 User Login
 
 ```
 POST /api/auth/login
@@ -101,11 +101,11 @@ POST /api/auth/login
 }
 ```
 
-**Lỗi `401 Unauthorized`:** Email hoặc mật khẩu không đúng.
+**Error `401 Unauthorized`:** Incorrect email or password.
 
 ---
 
-### 2.3 Xem thông tin cá nhân
+### 2.3 Get Current User Profile
 
 ```
 GET /api/auth/me
@@ -125,7 +125,7 @@ GET /api/auth/me
 
 ## 3. Libraries
 
-### 3.1 Danh sách thư viện
+### 3.1 List Libraries
 
 ```
 GET /api/libraries
@@ -136,8 +136,8 @@ GET /api/libraries
 [
   {
     "id": "lib-uuid-001",
-    "name": "Vật lý đại cương",
-    "description": "Tài liệu vật lý năm nhất",
+    "name": "General Physics",
+    "description": "First-year physics lecture notes",
     "icon_or_color": "#3B82F6",
     "total_documents": 5,
     "created_at": "2024-01-15T10:30:00+00:00"
@@ -147,7 +147,7 @@ GET /api/libraries
 
 ---
 
-### 3.2 Tạo thư viện mới
+### 3.2 Create New Library
 
 ```
 POST /api/libraries
@@ -156,29 +156,29 @@ POST /api/libraries
 **Request Body:**
 ```json
 {
-  "name": "Vật lý đại cương",
-  "description": "Tài liệu vật lý năm nhất",
+  "name": "General Physics",
+  "description": "First-year physics lecture notes",
   "icon_or_color": "#3B82F6"
 }
 ```
 
-**Response `201 Created`:** Trả về `LibraryOut` object.
+**Response `201 Created`:** Returns the created `LibraryOut` object.
 
 ---
 
-### 3.3 Xem chi tiết thư viện
+### 3.3 Get Library Details
 
 ```
 GET /api/libraries/{library_id}
 ```
 
-**Response `200 OK`:** Trả về `LibraryOut` object.
+**Response `200 OK`:** Returns `LibraryOut` object.
 
-**Lỗi `404`:** Không tìm thấy thư viện hoặc không thuộc quyền sở hữu.
+**Error `404 Not Found`:** Library not found or does not belong to the current user.
 
 ---
 
-### 3.4 Xóa thư viện
+### 3.4 Delete Library
 
 ```
 DELETE /api/libraries/{library_id}
@@ -186,13 +186,13 @@ DELETE /api/libraries/{library_id}
 
 **Response `204 No Content`**
 
-> ⚠️ **Cascade delete**: Xóa thư viện sẽ xóa toàn bộ documents, chunks, sessions, messages, quizzes liên quan.
+> ⚠️ **Cascade delete**: Deleting a library cascades and permanently deletes all related documents, chunks, sessions, messages, and quizzes.
 
 ---
 
 ## 4. Chat Sessions
 
-### 4.1 Danh sách phiên chat
+### 4.1 List Chat Sessions
 
 ```
 GET /api/libraries/{library_id}/sessions
@@ -204,7 +204,7 @@ GET /api/libraries/{library_id}/sessions
   {
     "id": "sess-uuid-001",
     "library_id": "lib-uuid-001",
-    "title": "Hỏi về chương 3",
+    "title": "Questions about Chapter 3",
     "created_at": "2024-01-15T10:30:00+00:00",
     "updated_at": "2024-01-15T11:00:00+00:00"
   }
@@ -213,7 +213,7 @@ GET /api/libraries/{library_id}/sessions
 
 ---
 
-### 4.2 Tạo phiên chat mới
+### 4.2 Create Chat Session
 
 ```
 POST /api/libraries/{library_id}/sessions
@@ -222,15 +222,15 @@ POST /api/libraries/{library_id}/sessions
 **Request Body:**
 ```json
 {
-  "title": "Đoạn chat mới"
+  "title": "New Chat Session"
 }
 ```
 
-**Response `201 Created`:** Trả về `SessionOut` object.
+**Response `201 Created`:** Returns `SessionOut` object.
 
 ---
 
-### 4.3 Xóa phiên chat
+### 4.3 Delete Chat Session
 
 ```
 DELETE /api/libraries/{library_id}/sessions/{session_id}
@@ -240,7 +240,7 @@ DELETE /api/libraries/{library_id}/sessions/{session_id}
 
 ---
 
-### 4.4 Lịch sử tin nhắn
+### 4.4 Get Message History
 
 ```
 GET /api/libraries/{library_id}/sessions/{session_id}/messages
@@ -253,7 +253,7 @@ GET /api/libraries/{library_id}/sessions/{session_id}/messages
     "id": "msg-uuid-001",
     "session_id": "sess-uuid-001",
     "role": "user",
-    "content": "Giải thích nguyên lý hoạt động transistor",
+    "content": "Explain the operating principle of a bipolar junction transistor",
     "citations": null,
     "quiz_id": null,
     "quiz": null,
@@ -263,9 +263,9 @@ GET /api/libraries/{library_id}/sessions/{session_id}/messages
     "id": "msg-uuid-002",
     "session_id": "sess-uuid-001",
     "role": "assistant",
-    "content": "Transistor hoạt động dựa trên nguyên lý bán dẫn...",
+    "content": "A bipolar junction transistor (BJT) operates based on semiconductor physics...",
     "citations": [
-      {"page_number": 45, "document_id": "doc-uuid-001", "file_name": "VatLy.pdf"}
+      {"page_number": 45, "document_id": "doc-uuid-001", "file_name": "Physics.pdf"}
     ],
     "quiz_id": null,
     "quiz": null,
@@ -274,13 +274,13 @@ GET /api/libraries/{library_id}/sessions/{session_id}/messages
 ]
 ```
 
-> **Lưu ý**: Khi `quiz_id` không null, field `quiz` sẽ chứa đầy đủ `QuizOut` object (bao gồm `questions[]`).
+> **Note**: When `quiz_id` is present (non-null), the `quiz` field is populated with the complete `QuizOut` object (including `questions[]`).
 
 ---
 
 ## 5. Documents
 
-### 5.1 Upload tài liệu PDF
+### 5.1 Upload PDF Document
 
 ```
 POST /api/documents/upload
@@ -289,31 +289,31 @@ Content-Type: multipart/form-data
 
 **Form Fields:**
 
-| Field | Type | Bắt buộc | Mô tả |
-|-------|------|----------|-------|
-| `library_id` | string (UUID) | ✅ | ID thư viện đích |
-| `file` | File (PDF) | ✅ | File PDF cần upload |
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `library_id` | string (UUID) | ✅ | Target library ID |
+| `file` | File (PDF) | ✅ | PDF file to upload |
 
 **Response `201 Created`:**
 ```json
 {
   "id": "doc-uuid-001",
   "library_id": "lib-uuid-001",
-  "file_name": "GiaoTrinh_VatLy.pdf",
+  "file_name": "Physics_Textbook.pdf",
   "total_pages": null,
   "status": "processing",
   "created_at": "2024-01-15T10:30:00+00:00"
 }
 ```
 
-**Lỗi `400`:** File không phải PDF.
-**Lỗi `404`:** Thư viện không tồn tại hoặc không thuộc quyền sở hữu.
+**Error `400 Bad Request`:** File is not a valid PDF.
+**Error `404 Not Found`:** Library does not exist or is not owned by the current user.
 
-> **Lưu ý**: Sau khi upload, hệ thống tự động chạy ingestion pipeline nền. Dùng endpoint progress để theo dõi.
+> **Note**: Immediately following upload, the background ingestion pipeline begins. Use the progress endpoint below to monitor extraction and vectorization.
 
 ---
 
-### 5.2 Theo dõi tiến trình xử lý
+### 5.2 Monitor Ingestion Progress
 
 ```
 GET /api/documents/{document_id}/progress
@@ -323,7 +323,7 @@ GET /api/documents/{document_id}/progress
 ```json
 {
   "document_id": "doc-uuid-001",
-  "file_name": "GiaoTrinh_VatLy.pdf",
+  "file_name": "Physics_Textbook.pdf",
   "status": "processing",
   "total_chunks": 150,
   "processed_chunks": 75,
@@ -332,28 +332,28 @@ GET /api/documents/{document_id}/progress
 }
 ```
 
-**Status values:**
+**Status Values:**
 
-| Status | Mô tả |
-|--------|--------|
-| `pending` | Đang chờ xử lý |
-| `processing` | Đang trích xuất text & tạo embeddings |
-| `ready` | Hoàn thành, sẵn sàng tìm kiếm |
-| `failed` | Xử lý thất bại (xem `error_message`) |
+| Status | Description |
+|--------|-------------|
+| `pending` | Queued, waiting to begin processing |
+| `processing` | Extracting text and computing vector embeddings |
+| `ready` | Completed successfully; available for similarity search |
+| `failed` | Processing failed (see `error_message` for details) |
 
 ---
 
-### 5.3 Danh sách tài liệu trong thư viện
+### 5.3 List Documents in Library
 
 ```
 GET /api/documents/library/{library_id}
 ```
 
-**Response `200 OK`:** Mảng `DocumentOut[]`.
+**Response `200 OK`:** Array of `DocumentOut[]`.
 
 ---
 
-### 5.4 Xóa tài liệu
+### 5.4 Delete Document
 
 ```
 DELETE /api/documents/{document_id}
@@ -361,13 +361,13 @@ DELETE /api/documents/{document_id}
 
 **Response `204 No Content`**
 
-> Xóa đồng thời: file trên MinIO, chunks trong DB, ingestion job.
+> Concurrently removes the stored PDF in MinIO, vector chunks in PostgreSQL, and any associated ingestion job records.
 
 ---
 
 ## 6. Chat (Streaming)
 
-### 6.1 Gửi tin nhắn chat
+### 6.1 Send Chat Message
 
 ```
 POST /api/chat
@@ -380,7 +380,7 @@ Content-Type: application/json
   "messages": [
     {
       "role": "user",
-      "content": "Tóm tắt nội dung chương 5"
+      "content": "Summarize the key takeaways of Chapter 5"
     }
   ],
   "libraryId": "lib-uuid-001",
@@ -388,53 +388,53 @@ Content-Type: application/json
 }
 ```
 
-**Custom Headers (tùy chọn — BYOK):**
+**Custom Headers (Optional — BYOK):**
 
-| Header | Mô tả |
-|--------|--------|
-| `X-Gemini-Key` | API key Google Gemini |
-| `X-Openai-Key` | API key OpenAI |
-| `X-Anthropic-Key` | API key Anthropic |
-| `X-Supervisor-Model` | Override model cho Supervisor agent |
-| `X-Generator-Model` | Override model cho Generator node |
-| `X-Evaluator-Model` | Override model cho Evaluator node |
-| `X-Synthesizer-Model` | Override model cho Synthesizer node |
+| Header | Description |
+|--------|-------------|
+| `X-Gemini-Key` | Google Gemini API key |
+| `X-Openai-Key` | OpenAI API key |
+| `X-Anthropic-Key` | Anthropic Claude API key |
+| `X-Supervisor-Model` | Override model for the Supervisor agent |
+| `X-Generator-Model` | Override model for the Generator node |
+| `X-Evaluator-Model` | Override model for the Evaluator node |
+| `X-Synthesizer-Model` | Override model for the Synthesizer node |
 
 **Response `200 OK` (`text/plain` streaming):**
 
-Stream bao gồm 3 loại nội dung xen kẽ:
+The stream delivers three types of interleaved content:
 
-#### 1. SSE Events (inline HTML comments)
+#### 1. SSE Events (Inline HTML Comments)
 ```
-<!--EVENT:{"type":"tool_status","tool":"search_documents","phase":"searching","label":"Đang tra cứu..."}-->
-<!--EVENT:{"type":"tool_status","tool":"search_documents","phase":"completed","label":"Đã tìm 12 trích dẫn"}-->
+<!--EVENT:{"type":"tool_status","tool":"search_documents","phase":"searching","label":"Searching documents..."}-->
+<!--EVENT:{"type":"tool_status","tool":"search_documents","phase":"completed","label":"Found 12 citations"}-->
 <!--EVENT:{"type":"quiz_batch","batch_index":0,"questions":[...]}-->
 <!--EVENT:{"type":"quiz_ready","quiz_id":"quiz-uuid-001"}-->
 ```
 
-#### 2. Text Response (word-by-word streaming)
+#### 2. Text Response (Word-by-Word Streaming)
 ```
-Transistor hoạt động dựa trên nguyên lý bán dẫn...
+A bipolar junction transistor (BJT) operates based on semiconductor physics...
 ```
 
 #### 3. Metadata Footer
 ```
-<!--METADATA_START-->{"quiz_id":"quiz-uuid-001","citations":[{"page_number":45,"document_id":"doc-001","file_name":"VatLy.pdf"}]}<!--METADATA_END-->
+<!--METADATA_START-->{"quiz_id":"quiz-uuid-001","citations":[{"page_number":45,"document_id":"doc-001","file_name":"Physics.pdf"}]}<!--METADATA_END-->
 ```
 
 **Event Types:**
 
-| Event Type | Mô tả | Payload |
-|------------|--------|---------|
-| `tool_status` | Trạng thái thực thi tool | `tool`, `phase`, `label`, `citations?` |
-| `quiz_batch` | Một batch câu hỏi hoàn thành | `batch_index`, `questions[]` |
-| `quiz_ready` | Quiz đã được lưu vào DB | `quiz_id` |
+| Event Type | Description | Payload |
+|------------|-------------|---------|
+| `tool_status` | Status updates during tool invocation | `tool`, `phase`, `label`, `citations?` |
+| `quiz_batch` | Completed batch of quiz questions | `batch_index`, `questions[]` |
+| `quiz_ready` | Quiz persisted to database | `quiz_id` |
 
 ---
 
 ## 7. Quizzes
 
-### 7.1 Tạo quiz mới (từ editor)
+### 7.1 Create Quiz (from Editor)
 
 ```
 POST /api/quizzes
@@ -444,29 +444,29 @@ POST /api/quizzes
 ```json
 {
   "library_id": "lib-uuid-001",
-  "title": "Đề ôn tập Vật lý chương 3",
-  "description": "20 câu trắc nghiệm",
+  "title": "Physics Chapter 3 Revision Quiz",
+  "description": "20 multiple choice questions",
   "is_edited_by_user": true,
   "questions": [
     {
-      "question_text": "Transistor BJT có bao nhiêu lớp bán dẫn?",
-      "option_a": "1 lớp",
-      "option_b": "2 lớp",
-      "option_c": "3 lớp",
-      "option_d": "4 lớp",
+      "question_text": "How many semiconductor layers does a BJT possess?",
+      "option_a": "1 layer",
+      "option_b": "2 layers",
+      "option_c": "3 layers",
+      "option_d": "4 layers",
       "correct_answer": "C",
-      "explanation": "Transistor BJT có 3 lớp bán dẫn: P-N-P hoặc N-P-N (Trang 45).",
+      "explanation": "A BJT consists of 3 alternating semiconductor layers: P-N-P or N-P-N (Page 45).",
       "source_page": 45
     }
   ]
 }
 ```
 
-**Response `201 Created`:** Trả về `QuizOut` object (bao gồm `questions[]` với `id`, `order_index`).
+**Response `201 Created`:** Returns `QuizOut` object (including `questions[]` with generated `id` and `order_index`).
 
 ---
 
-### 7.2 Xem chi tiết quiz
+### 7.2 Get Quiz Details
 
 ```
 GET /api/quizzes/{quiz_id}
@@ -476,7 +476,7 @@ GET /api/quizzes/{quiz_id}
 ```json
 {
   "id": "quiz-uuid-001",
-  "title": "Đề ôn tập 15/01/2024 10:30",
+  "title": "Revision Quiz 2024-01-15 10:30",
   "description": null,
   "total_questions": 20,
   "is_edited_by_user": false,
@@ -484,13 +484,13 @@ GET /api/quizzes/{quiz_id}
     {
       "id": "q-uuid-001",
       "order_index": 0,
-      "question_text": "Transistor BJT có bao nhiêu lớp bán dẫn?",
-      "option_a": "1 lớp",
-      "option_b": "2 lớp",
-      "option_c": "3 lớp",
-      "option_d": "4 lớp",
+      "question_text": "How many semiconductor layers does a BJT possess?",
+      "option_a": "1 layer",
+      "option_b": "2 layers",
+      "option_c": "3 layers",
+      "option_d": "4 layers",
       "correct_answer": "C",
-      "explanation": "Transistor BJT có 3 lớp bán dẫn P-N-P hoặc N-P-N.",
+      "explanation": "A BJT consists of 3 alternating semiconductor layers: P-N-P or N-P-N.",
       "source_page": 45
     }
   ]
@@ -499,27 +499,27 @@ GET /api/quizzes/{quiz_id}
 
 ---
 
-### 7.3 Cập nhật quiz (thay thế toàn bộ câu hỏi)
+### 7.3 Update Quiz (Full Question Set Replacement)
 
 ```
 PUT /api/quizzes/{quiz_id}
 ```
 
-**Request Body:** Giống `POST /api/quizzes` (bao gồm `library_id`, `title`, `questions[]`).
+**Request Body:** Same schema as `POST /api/quizzes` (including `library_id`, `title`, `questions[]`).
 
-**Response `200 OK`:** Trả về `QuizOut` object đã cập nhật.
+**Response `200 OK`:** Returns updated `QuizOut` object.
 
-> **Lưu ý**: PUT sẽ xóa toàn bộ câu hỏi cũ và thay thế bằng danh sách mới. `is_edited_by_user` tự động set `true`.
+> **Note**: A `PUT` request removes all existing questions for this quiz and replaces them with the new set. The `is_edited_by_user` flag is automatically updated to `true`.
 
 ---
 
-### 7.4 Danh sách quiz theo thư viện
+### 7.4 List Quizzes by Library
 
 ```
 GET /api/quizzes/library/{library_id}
 ```
 
-**Response `200 OK`:** Mảng `QuizOut[]`.
+**Response `200 OK`:** Array of `QuizOut[]`.
 
 ---
 
@@ -537,33 +537,33 @@ GET /api/health
 }
 ```
 
-> Không yêu cầu authentication.
+> Does not require authentication.
 
 ---
 
-## 9. Mã lỗi HTTP
+## 9. HTTP Status Codes
 
-| Mã | Ý nghĩa | Trường hợp sử dụng |
-|----|---------|---------------------|
-| `200` | OK | Thành công (GET, PUT, POST) |
-| `201` | Created | Tạo mới thành công (register, create library, upload) |
-| `204` | No Content | Xóa thành công (delete) |
-| `400` | Bad Request | File không phải PDF, quiz không có câu hỏi |
-| `401` | Unauthorized | Token hết hạn, sai email/password |
-| `404` | Not Found | Resource không tồn tại hoặc không thuộc user hiện tại |
-| `409` | Conflict | Email đã được đăng ký |
-| `422` | Unprocessable Entity | Validation error (Pydantic) |
-| `500` | Internal Server Error | Lỗi server không mong đợi |
+| Code | Status Text | Use Case |
+|------|-------------|----------|
+| `200` | OK | Successful retrieval or mutation (GET, PUT, POST) |
+| `201` | Created | Resource successfully created (register, create library, upload) |
+| `204` | No Content | Successful deletion with no body returned (DELETE) |
+| `400` | Bad Request | Non-PDF upload, quiz without questions, invalid inputs |
+| `401` | Unauthorized | Missing or expired token, incorrect credentials |
+| `404` | Not Found | Resource does not exist or is not owned by the current user |
+| `409` | Conflict | Email already registered |
+| `422` | Unprocessable Entity | Pydantic validation error |
+| `500` | Internal Server Error | Unexpected server runtime exception |
 
 ### Error Response Format
 
 ```json
 {
-  "detail": "Mô tả lỗi bằng tiếng Việt"
+  "detail": "Error description in English"
 }
 ```
 
-### Ví dụ Pydantic Validation Error (`422`):
+### Pydantic Validation Error Example (`422`):
 
 ```json
 {

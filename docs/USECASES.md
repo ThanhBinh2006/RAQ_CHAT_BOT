@@ -1,398 +1,398 @@
-# 📋 USECASES.md — Đặc tả Use Case theo Cockburn
+# 📋 USECASES.md — Cockburn Use Case Specifications
 
-> Tài liệu đặc tả các Use Case chính của RAQ Chatbot, trình bày theo khuôn mẫu **Cockburn (Fully-dressed)**.
-
----
-
-## 📑 Mục lục
-
-- [UC-01: Đăng ký tài khoản](#uc-01-đăng-ký-tài-khoản)
-- [UC-02: Đăng nhập hệ thống](#uc-02-đăng-nhập-hệ-thống)
-- [UC-03: Quản lý Thư viện tài liệu](#uc-03-quản-lý-thư-viện-tài-liệu)
-- [UC-04: Upload và xử lý tài liệu PDF](#uc-04-upload-và-xử-lý-tài-liệu-pdf)
-- [UC-05: Chat hỏi đáp bám sát tài liệu (RAG)](#uc-05-chat-hỏi-đáp-bám-sát-tài-liệu-rag)
-- [UC-06: Tạo đề trắc nghiệm tự động](#uc-06-tạo-đề-trắc-nghiệm-tự-động)
-- [UC-07: Chỉnh sửa và lưu đề trắc nghiệm](#uc-07-chỉnh-sửa-và-lưu-đề-trắc-nghiệm)
-- [UC-08: Xuất đề trắc nghiệm PDF](#uc-08-xuất-đề-trắc-nghiệm-pdf)
-- [Sơ đồ Use Case tổng quan](#sơ-đồ-use-case-tổng-quan)
+> Detailed specification of core Use Cases for RAQ Chatbot, structured according to the **Cockburn (Fully-Dressed)** template.
 
 ---
 
-## UC-01: Đăng ký tài khoản
+## 📑 Table of Contents
 
-| Thuộc tính | Chi tiết |
-|-----------|----------|
-| **Mã UC** | UC-01 |
-| **Tên** | Đăng ký tài khoản mới |
-| **Mức độ** | User Goal |
-| **Tác nhân chính** | Người dùng (Student/Teacher) |
-| **Tác nhân phụ** | Hệ thống backend |
-| **Mô tả** | Người dùng tạo tài khoản mới bằng email và mật khẩu để truy cập hệ thống |
-| **Tiền điều kiện** | Người dùng chưa có tài khoản |
-| **Hậu điều kiện** | Tài khoản được tạo trong DB, người dùng có thể đăng nhập |
+- [UC-01: User Registration](#uc-01-user-registration)
+- [UC-02: User Authentication](#uc-02-user-authentication)
+- [UC-03: Document Library Management](#uc-03-document-library-management)
+- [UC-04: PDF Upload & Ingestion Processing](#uc-04-pdf-upload--ingestion-processing)
+- [UC-05: Document Question Answering (RAG Chat)](#uc-05-document-question-answering-rag-chat)
+- [UC-06: Automated Quiz Generation](#uc-06-automated-quiz-generation)
+- [UC-07: Inline Quiz Editing and Saving](#uc-07-inline-quiz-editing-and-saving)
+- [UC-08: Export Quiz to PDF](#uc-08-export-quiz-to-pdf)
+- [Overall Use Case Diagram](#overall-use-case-diagram)
 
-### Luồng chính (Main Success Scenario)
+---
 
-| Bước | Tác nhân | Hành động |
-|------|---------|-----------|
-| 1 | Người dùng | Truy cập trang `/auth/register` |
-| 2 | Người dùng | Nhập email, mật khẩu, họ tên |
-| 3 | Người dùng | Nhấn nút "Đăng ký" |
-| 4 | Hệ thống | Kiểm tra email chưa tồn tại trong DB |
-| 5 | Hệ thống | Hash mật khẩu bằng bcrypt |
-| 6 | Hệ thống | Tạo bản ghi User mới trong bảng `users` |
-| 7 | Hệ thống | Trả về thông tin user (201 Created) |
-| 8 | Frontend | Chuyển hướng người dùng đến trang đăng nhập |
+## UC-01: User Registration
 
-### Luồng thay thế (Alternate Flows)
+| Attribute | Details |
+|-----------|---------|
+| **UC ID** | UC-01 |
+| **Name** | Register New Account |
+| **Level** | User Goal |
+| **Primary Actor** | User (Student / Instructor) |
+| **Secondary Actor** | Backend System |
+| **Description** | User creates a new account using email and password to access system features |
+| **Preconditions** | User does not already possess an active account |
+| **Postconditions** | User record created in database; user can proceed to login |
 
-| Bước | Điều kiện | Hành động |
-|------|-----------|-----------|
-| 4a | Email đã tồn tại | Hệ thống trả về lỗi 409 "Email đã được đăng ký" |
-| 3a | Email không hợp lệ | Frontend/Backend validation lỗi 422 |
-| 3b | Mật khẩu quá ngắn | Frontend hiển thị thông báo lỗi |
+### Main Success Scenario
 
-### Mapping kỹ thuật
+| Step | Actor | Action |
+|------|-------|--------|
+| 1 | User | Navigates to `/auth/register` |
+| 2 | User | Enters email, password, first name, and last name |
+| 3 | User | Clicks "Register" |
+| 4 | System | Verifies that the email is not already registered |
+| 5 | System | Hashes password using bcrypt |
+| 6 | System | Inserts new User record into `users` table |
+| 7 | System | Returns user details (`201 Created`) |
+| 8 | Frontend | Redirects user to the login screen |
 
-| Component | File | Endpoint/Function |
-|-----------|------|-------------------|
-| Backend route | `backend/app/api/routes/auth.py` | `POST /api/auth/register` |
+### Alternate Flows
+
+| Step | Condition | Action |
+|------|-----------|--------|
+| 4a | Email already exists | System returns `409 Conflict` ("Email already registered") |
+| 3a | Invalid email format | Frontend / backend returns `422 Unprocessable Entity` |
+| 3b | Password does not meet criteria | Frontend displays validation warning message |
+
+### Technical Mapping
+
+| Component | File Path | Endpoint / Symbol |
+|-----------|-----------|-------------------|
+| Backend Route | `backend/app/api/routes/auth.py` | `POST /api/auth/register` |
 | Schema | `backend/app/schemas/auth.py` | `RegisterRequest`, `UserOut` |
-| Frontend page | `frontend/src/app/auth/register/page.tsx` | Register form component |
+| Frontend Page | `frontend/src/app/auth/register/page.tsx` | Register form component |
 
 ---
 
-## UC-02: Đăng nhập hệ thống
+## UC-02: User Authentication
 
-| Thuộc tính | Chi tiết |
-|-----------|----------|
-| **Mã UC** | UC-02 |
-| **Tên** | Đăng nhập hệ thống |
-| **Mức độ** | User Goal |
-| **Tác nhân chính** | Người dùng đã đăng ký |
-| **Mô tả** | Người dùng đăng nhập bằng email/password để nhận JWT token |
-| **Tiền điều kiện** | Đã có tài khoản (UC-01 hoàn thành) |
-| **Hậu điều kiện** | JWT token được lưu vào localStorage, người dùng truy cập Dashboard |
+| Attribute | Details |
+|-----------|---------|
+| **UC ID** | UC-02 |
+| **Name** | System Login |
+| **Level** | User Goal |
+| **Primary Actor** | Registered User |
+| **Description** | User logs in using email and password to obtain a JWT access token |
+| **Preconditions** | User account exists (UC-01 completed) |
+| **Postconditions** | JWT stored in localStorage; user redirected to Dashboard |
 
-### Luồng chính
+### Main Success Scenario
 
-| Bước | Tác nhân | Hành động |
-|------|---------|-----------|
-| 1 | Người dùng | Truy cập trang `/auth/login` |
-| 2 | Người dùng | Nhập email và mật khẩu |
-| 3 | Người dùng | Nhấn "Đăng nhập" |
-| 4 | Hệ thống | Tìm User theo email trong DB |
-| 5 | Hệ thống | Verify password bằng bcrypt |
-| 6 | Hệ thống | Tạo JWT token (HS256, exp=24h) |
-| 7 | Hệ thống | Trả về `{access_token, token_type}` |
-| 8 | Frontend | Lưu token vào `localStorage` |
-| 9 | Frontend | Chuyển hướng đến Dashboard (`/`) |
+| Step | Actor | Action |
+|------|-------|--------|
+| 1 | User | Navigates to `/auth/login` |
+| 2 | User | Enters registered email and password |
+| 3 | User | Clicks "Log In" |
+| 4 | System | Queries User by email from database |
+| 5 | System | Verifies password hash using bcrypt |
+| 6 | System | Generates signed JWT token (HS256, 24-hour expiration) |
+| 7 | System | Returns `{access_token, token_type}` (`200 OK`) |
+| 8 | Frontend | Stores access token in `localStorage` |
+| 9 | Frontend | Redirects user to Dashboard (`/`) |
 
-### Luồng thay thế
+### Alternate Flows
 
-| Bước | Điều kiện | Hành động |
-|------|-----------|-----------|
-| 4a | Email không tồn tại | Trả lỗi 401 "Email hoặc mật khẩu không đúng" |
-| 5a | Password sai | Trả lỗi 401 (cùng message để không leak info) |
-| 8a | Token hết hạn (sau 24h) | Frontend redirect về `/auth/login` |
+| Step | Condition | Action |
+|------|-----------|--------|
+| 4a | Email not found | Returns `401 Unauthorized` ("Incorrect email or password") |
+| 5a | Password incorrect | Returns identical `401 Unauthorized` error (avoids enumeration) |
+| 8a | Token expired (after 24h) | Frontend automatically redirects to `/auth/login` |
 
-### Mapping kỹ thuật
+### Technical Mapping
 
-| Component | File | Endpoint/Function |
-|-----------|------|-------------------|
-| Backend route | `backend/app/api/routes/auth.py` | `POST /api/auth/login` |
-| Security | `backend/app/core/security.py` | `verify_password()`, `create_access_token()` |
-| Frontend page | `frontend/src/app/auth/login/page.tsx` | Login form component |
-| Auth context | `frontend/src/lib/auth-context.tsx` | `AuthProvider`, `useAuth()` |
-
----
-
-## UC-03: Quản lý Thư viện tài liệu
-
-| Thuộc tính | Chi tiết |
-|-----------|----------|
-| **Mã UC** | UC-03 |
-| **Tên** | Tạo, xem, xóa Thư viện tài liệu |
-| **Mức độ** | User Goal |
-| **Tác nhân chính** | Người dùng đã đăng nhập |
-| **Mô tả** | Người dùng tổ chức tài liệu theo Thư viện (Library) riêng biệt |
-| **Tiền điều kiện** | Đã đăng nhập (UC-02) |
-| **Hậu điều kiện** | Library được tạo/xóa thành công |
-
-### Luồng chính — Tạo thư viện
-
-| Bước | Tác nhân | Hành động |
-|------|---------|-----------|
-| 1 | Người dùng | Tại Dashboard, nhấn nút "Tạo thư viện mới" |
-| 2 | Người dùng | Nhập tên thư viện, mô tả (tùy chọn), chọn màu icon |
-| 3 | Người dùng | Nhấn "Tạo" |
-| 4 | Hệ thống | Tạo bản ghi Library (user_id = current_user) |
-| 5 | Frontend | Cập nhật danh sách thư viện, hiển thị thư viện mới |
-
-### Luồng chính — Xóa thư viện
-
-| Bước | Tác nhân | Hành động |
-|------|---------|-----------|
-| 1 | Người dùng | Nhấn nút xóa trên thư viện |
-| 2 | Frontend | Hiển thị dialog xác nhận |
-| 3 | Người dùng | Xác nhận xóa |
-| 4 | Hệ thống | CASCADE DELETE: xóa library + documents + chunks + sessions + messages + quizzes |
-| 5 | Frontend | Cập nhật danh sách thư viện |
-
-### Mapping kỹ thuật
-
-| Component | File | Endpoint |
-|-----------|------|----------|
-| Backend route | `backend/app/api/routes/libraries.py` | `GET/POST /api/libraries`, `DELETE /api/libraries/{id}` |
-| Frontend page | `frontend/src/app/page.tsx` | Dashboard (Library grid) |
+| Component | File Path | Endpoint / Symbol |
+|-----------|-----------|-------------------|
+| Backend Route | `backend/app/api/routes/auth.py` | `POST /api/auth/login` |
+| Security Core | `backend/app/core/security.py` | `verify_password()`, `create_access_token()` |
+| Frontend Page | `frontend/src/app/auth/login/page.tsx` | Login form component |
+| Auth Context | `frontend/src/lib/auth-context.tsx` | `AuthProvider`, `useAuth()` |
 
 ---
 
-## UC-04: Upload và xử lý tài liệu PDF
+## UC-03: Document Library Management
 
-| Thuộc tính | Chi tiết |
-|-----------|----------|
-| **Mã UC** | UC-04 |
-| **Tên** | Upload tài liệu PDF vào thư viện |
-| **Mức độ** | User Goal |
-| **Tác nhân chính** | Người dùng đã đăng nhập |
-| **Tác nhân phụ** | MinIO (S3), NVIDIA Embedding API |
-| **Mô tả** | Upload file PDF → lưu MinIO → trích xuất text → chia chunk → tạo embedding vector |
-| **Tiền điều kiện** | Đã tạo ít nhất 1 thư viện (UC-03) |
-| **Hậu điều kiện** | File PDF được lưu trữ, chunks + embeddings sẵn sàng cho RAG search |
+| Attribute | Details |
+|-----------|---------|
+| **UC ID** | UC-03 |
+| **Name** | Create, View, and Delete Document Libraries |
+| **Level** | User Goal |
+| **Primary Actor** | Authenticated User |
+| **Description** | User organizes documents into isolated subject libraries |
+| **Preconditions** | User is authenticated (UC-02) |
+| **Postconditions** | Library successfully created, listed, or deleted |
 
-### Luồng chính
+### Main Success Scenario — Create Library
 
-| Bước | Tác nhân | Hành động |
-|------|---------|-----------|
-| 1 | Người dùng | Mở trang thư viện `/libraries/{id}` |
-| 2 | Người dùng | Nhấn nút "Upload tài liệu" trên sidebar |
-| 3 | Người dùng | Chọn file PDF từ máy tính |
-| 4 | Frontend | Gửi `POST /api/documents/upload` (multipart/form-data) |
-| 5 | Hệ thống | Validate: file phải là `.pdf`, thư viện thuộc user |
-| 6 | Hệ thống | Upload file lên MinIO bucket `pdf-storage` |
-| 7 | Hệ thống | Tạo bản ghi Document (status: `processing`) và IngestionJob |
-| 8 | Hệ thống | Trả về 201 Created ngay lập tức |
-| 9 | Hệ thống | **Background task** bắt đầu ingestion pipeline: |
-| 9a | | PyMuPDF trích xuất text theo từng trang |
-| 9b | | RecursiveCharacterTextSplitter chia chunk (1000 chars, overlap 150) |
-| 9c | | NVIDIA Embedding API tạo vector 2048 dims (batch 32) |
-| 9d | | Lưu chunks + embeddings vào bảng `document_chunks` |
-| 10 | Frontend | Polling `GET /api/documents/{id}/progress` mỗi 2 giây |
-| 11 | Frontend | Hiển thị progress bar (processed_chunks / total_chunks) |
-| 12 | Hệ thống | Khi hoàn tất: status → `ready`, progress → 100% |
+| Step | Actor | Action |
+|------|-------|--------|
+| 1 | User | On Dashboard, clicks "New Library" |
+| 2 | User | Enters library title, description (optional), and selects an accent color |
+| 3 | User | Clicks "Create" |
+| 4 | System | Inserts Library record with `user_id = current_user.id` |
+| 5 | Frontend | Refreshes library grid to show newly created item |
 
-### Luồng thay thế
+### Main Success Scenario — Delete Library
 
-| Bước | Điều kiện | Hành động |
-|------|-----------|-----------|
-| 5a | File không phải PDF | Trả lỗi 400 "Chỉ chấp nhận file PDF" |
-| 9d-a | Embedding API lỗi | Document status → `failed`, error_message ghi nhận |
-| 9d-b | Mock mode (`USE_MOCK_LLM=true`) | Tạo pseudo-embedding bằng SHA-256 hash |
+| Step | Actor | Action |
+|------|-------|--------|
+| 1 | User | Clicks delete action on library card |
+| 2 | Frontend | Prompts user with confirmation dialog |
+| 3 | User | Confirms deletion |
+| 4 | System | CASCADE DELETE: drops library, documents, chunks, sessions, messages, and quizzes |
+| 5 | Frontend | Removes library from view |
 
-### Mapping kỹ thuật
+### Technical Mapping
 
-| Component | File | Function |
-|-----------|------|----------|
-| Backend route | `backend/app/api/routes/documents.py` | `upload_document()`, `get_progress()` |
-| Ingestion | `backend/app/services/ingestion_service.py` | `ingest_document()` |
-| Storage | `backend/app/services/storage_service.py` | `upload_file()` |
-| Frontend | `frontend/src/components/library/LibrarySidebar.tsx` | Upload UI + progress polling |
+| Component | File Path | Endpoint / Symbol |
+|-----------|-----------|-------------------|
+| Backend Route | `backend/app/api/routes/libraries.py` | `GET/POST /api/libraries`, `DELETE /api/libraries/{id}` |
+| Frontend Page | `frontend/src/app/page.tsx` | Dashboard (Library grid) |
 
 ---
 
-## UC-05: Chat hỏi đáp bám sát tài liệu (RAG)
+## UC-04: PDF Upload & Ingestion Processing
 
-| Thuộc tính | Chi tiết |
-|-----------|----------|
-| **Mã UC** | UC-05 |
-| **Tên** | Hỏi đáp tài liệu qua chatbot AI |
-| **Mức độ** | User Goal |
-| **Tác nhân chính** | Người dùng đã đăng nhập |
-| **Tác nhân phụ** | LLM (DeepSeek/Gemini/GPT/Claude), pgvector |
-| **Mô tả** | Người dùng đặt câu hỏi → AI tìm kiếm tài liệu (RAG + HyDE) → trả lời có trích dẫn |
-| **Tiền điều kiện** | Thư viện có ít nhất 1 document ở trạng thái `ready` |
-| **Hậu điều kiện** | Câu trả lời hiển thị real-time với citations (trang, tên file) |
+| Attribute | Details |
+|-----------|---------|
+| **UC ID** | UC-04 |
+| **Name** | Upload PDF Document to Library |
+| **Level** | User Goal |
+| **Primary Actor** | Authenticated User |
+| **Secondary Actor** | MinIO (S3), NVIDIA Embedding API |
+| **Description** | Upload PDF → save to MinIO → extract text → chunk → generate 2048-dim vector embeddings |
+| **Preconditions** | At least one library exists (UC-03) |
+| **Postconditions** | PDF stored in MinIO; chunks and embeddings ready for RAG similarity queries |
 
-### Luồng chính
+### Main Success Scenario
 
-| Bước | Tác nhân | Hành động |
-|------|---------|-----------|
-| 1 | Người dùng | Mở thư viện, chọn/tạo phiên chat |
-| 2 | Người dùng | Nhập câu hỏi (ví dụ: "Giải thích nguyên lý transistor") |
-| 3 | Frontend | `POST /api/chat` (SSE stream, kèm messages history, libraryId, sessionId) |
-| 4 | Hệ thống | Lưu tin nhắn user vào DB (`chat_messages`) |
-| 5 | Hệ thống | Cập nhật tiêu đề session tự động (nếu chưa đặt tên) |
-| 6 | Agent | Supervisor Agent phân tích intent → quyết định gọi `search_documents` |
-| 7 | Agent | **HyDE**: LLM sinh 2 câu trả lời giả định |
-| 8 | Agent | Embed query gốc + 2 hypothetical answers → 3 vectors |
-| 9 | Agent | pgvector cosine similarity → top-20 chunks (deduplicated) |
-| 10 | Frontend | SSE event: `tool_status` (searching → completed, N trích dẫn) |
-| 11 | Agent | Supervisor tổng hợp câu trả lời từ context chunks |
-| 12 | Frontend | Stream text word-by-word (15ms/word) |
-| 13 | Frontend | Nhận metadata footer: citations (page, file, document_id) |
-| 14 | Hệ thống | Background: lưu tin nhắn assistant vào DB |
+| Step | Actor | Action |
+|------|-------|--------|
+| 1 | User | Opens library view (`/libraries/{id}`) |
+| 2 | User | Clicks "Upload Document" in the sidebar |
+| 3 | User | Selects a PDF file from their computer |
+| 4 | Frontend | Dispatches `POST /api/documents/upload` (`multipart/form-data`) |
+| 5 | System | Validates file type (`.pdf`) and library ownership |
+| 6 | System | Uploads file to MinIO bucket `pdf-storage` |
+| 7 | System | Creates `Document` (status: `processing`) and `IngestionJob` records |
+| 8 | System | Immediately responds with `201 Created` |
+| 9 | System | **Background task** executes ingestion pipeline: |
+| 9a | | PyMuPDF extracts text page by page |
+| 9b | | RecursiveCharacterTextSplitter generates chunks (1000 chars, 150 overlap) |
+| 9c | | NVIDIA Embedding API computes 2048-dim vector embeddings (batch size 32) |
+| 9d | | Chunks and vectors are inserted into `document_chunks` table |
+| 10 | Frontend | Polls `GET /api/documents/{id}/progress` every 2 seconds |
+| 11 | Frontend | Updates progress bar (`processed_chunks / total_chunks`) |
+| 12 | System | Upon completion: status becomes `ready`, progress hits 100% |
 
-### Luồng thay thế
+### Alternate Flows
 
-| Bước | Điều kiện | Hành động |
-|------|-----------|-----------|
-| 6a | Câu hỏi chào hỏi / ngoài lề | Agent trả lời trực tiếp, không gọi tool |
-| 9a | Không tìm thấy chunk liên quan | Trả "Không tìm thấy tài liệu liên quan" |
-| 11a | LLM rate limit (429) | Format friendly error, hướng dẫn đợi N giây |
-| 11b | API key lỗi (401/403) | Thông báo kiểm tra API key trong Settings |
+| Step | Condition | Action |
+|------|-----------|--------|
+| 5a | File is not a PDF | System returns `400 Bad Request` ("Only PDF files accepted") |
+| 9d-a | Embedding API error | Document status set to `failed`; error message recorded in job |
+| 9d-b | Mock mode (`USE_MOCK_LLM=true`) | Generates deterministic pseudo-embeddings via SHA-256 hash |
 
-### Mapping kỹ thuật
+### Technical Mapping
 
-| Component | File | Function |
-|-----------|------|----------|
-| Chat endpoint | `backend/app/api/routes/chat.py` | `chat_endpoint()`, `generate_stream()` |
-| Agent graph | `backend/app/agents/assistant/graph.py` | `build_assistant_graph()` |
-| RAG tool | `backend/app/agents/assistant/tools/search_documents.py` | `search_documents()` |
-| Vector search | `backend/app/services/vector_store.py` | `similarity_search()` + HyDE |
-| Frontend | `frontend/src/components/chat/ChatWindow.tsx` | Chat UI + SSE parsing |
+| Component | File Path | Endpoint / Symbol |
+|-----------|-----------|-------------------|
+| Backend Route | `backend/app/api/routes/documents.py` | `upload_document()`, `get_progress()` |
+| Ingestion Service | `backend/app/services/ingestion_service.py` | `ingest_document()` |
+| Storage Service | `backend/app/services/storage_service.py` | `upload_file()` |
+| Frontend Component | `frontend/src/components/library/LibrarySidebar.tsx` | Upload UI + progress polling |
 
 ---
 
-## UC-06: Tạo đề trắc nghiệm tự động
+## UC-05: Document Question Answering (RAG Chat)
 
-| Thuộc tính | Chi tiết |
-|-----------|----------|
-| **Mã UC** | UC-06 |
-| **Tên** | AI tự động sinh đề trắc nghiệm |
-| **Mức độ** | User Goal |
-| **Tác nhân chính** | Người dùng đã đăng nhập |
-| **Tác nhân phụ** | Multi-Agent System (Generator, Evaluator, Synthesizer) |
-| **Mô tả** | Người dùng yêu cầu tạo N câu trắc nghiệm → hệ thống Multi-Agent sinh đề bám sát tài liệu |
-| **Tiền điều kiện** | Thư viện có tài liệu ready |
-| **Hậu điều kiện** | Bộ đề trắc nghiệm được lưu vào DB, hiển thị inline trong chat |
+| Attribute | Details |
+|-----------|---------|
+| **UC ID** | UC-05 |
+| **Name** | Document QA via AI Chatbot |
+| **Level** | User Goal |
+| **Primary Actor** | Authenticated User |
+| **Secondary Actor** | LLM (DeepSeek / Gemini / GPT / Claude), pgvector |
+| **Description** | User submits a question → AI performs RAG search with HyDE → streams response with citations |
+| **Preconditions** | Library contains at least one document in `ready` state |
+| **Postconditions** | Response rendered in real-time with document page and file citations |
 
-### Luồng chính
+### Main Success Scenario
 
-| Bước | Tác nhân | Hành động |
-|------|---------|-----------|
-| 1 | Người dùng | Chat: "Tạo 20 câu trắc nghiệm về chương 3" |
-| 2 | Supervisor | Phân tích intent → gọi `generate_quiz(num_questions=20, focus_topic="chương 3")` |
-| 3 | Frontend | SSE: `tool_status` "Đang lập kế hoạch biên soạn 20 câu hỏi..." |
-| 4 | Init node | Tính số batch (ceil(20/20) = 1), sinh aspect_hints bằng Structured LLM |
-| 5 | Frontend | SSE: `tool_status` "Đã lập kế hoạch 1 đợt. Bắt đầu đợt 1..." |
-| 6 | Generator | HyDE search lấy context → LLM sinh 20 câu hỏi trắc nghiệm (Structured Output) |
-| 7 | Frontend | SSE: `tool_status` "Đang sinh câu hỏi đợt 1/1..." |
-| 8 | Evaluator | Đánh giá chất lượng 20 câu → approved/rejected |
-| 9a | (approved) | Chuyển sang synthesizer |
-| 9b | (rejected) | Generator regenerate với feedback (max 2 lần) |
-| 10 | Synthesizer | Lọc câu đạt, gửi SSE `quiz_batch` event |
-| 11 | Frontend | SSE: `quiz_batch` → hiển thị preview câu hỏi real-time |
-| 12 | Hệ thống | Auto-save quiz vào DB (bảng `quizzes` + `quiz_questions`) |
-| 13 | Frontend | SSE: `quiz_ready` (quiz_id) → fetch quiz detail |
-| 14 | Frontend | Hiển thị QuizPreviewCard inline trong chat |
-| 15 | Hệ thống | Lưu assistant message với `quiz_id` vào `chat_messages` |
+| Step | Actor | Action |
+|------|-------|--------|
+| 1 | User | Opens library and selects or creates a chat session |
+| 2 | User | Inputs a query (e.g., "Explain how a transistor works") |
+| 3 | Frontend | Calls `POST /api/chat` with SSE streaming, message history, and IDs |
+| 4 | System | Persists user message into `chat_messages` table |
+| 5 | System | Automatically names session if currently untitled |
+| 6 | Agent | Supervisor Agent evaluates intent and calls tool `search_documents` |
+| 7 | Agent | **HyDE**: LLM synthesizes 2 hypothetical answers |
+| 8 | Agent | Embeds original query + hypothetical answers into 3 vectors |
+| 9 | Agent | Executes pgvector cosine similarity search to retrieve top-20 chunks |
+| 10 | Frontend | Receives SSE event: `tool_status` (searching → completed, N citations) |
+| 11 | Agent | Supervisor synthesizes comprehensive answer from context chunks |
+| 12 | Frontend | Streams answer text word-by-word |
+| 13 | Frontend | Receives metadata footer with citations (page number, file name) |
+| 14 | System | Persists assistant message and citations to database |
 
-### Luồng thay thế
+### Alternate Flows
 
-| Bước | Điều kiện | Hành động |
-|------|-----------|-----------|
-| 6a | Mock mode | Generator trả câu hỏi mock mẫu |
-| 8a | Evaluator rejected (lần 1) | Generator tạo lại + feedback |
-| 8b | Evaluator rejected (lần 2) | Chấp nhận best effort → synthesizer |
-| 6b | Rate limit 429 | Lưu câu hỏi đã có, thông báo friendly error + số câu đã sinh |
-| 1a | Không nói rõ số câu | Mặc định 10 câu (theo system prompt) |
+| Step | Condition | Action |
+|------|-----------|--------|
+| 6a | Casual greeting / out-of-scope query | Agent replies directly without invoking search tools |
+| 9a | No relevant chunks found | Replies indicating that relevant source content was not found |
+| 11a | LLM rate limit (429) | Emits friendly error and indicates retry waiting time |
+| 11b | Invalid BYOK key (401/403) | Notifies user to verify their API key in Settings |
 
-### Mapping kỹ thuật
+### Technical Mapping
 
-| Component | File | Function |
-|-----------|------|----------|
-| Quiz tool | `backend/app/agents/assistant/tools/generate_quiz/tool.py` | `generate_quiz()` |
+| Component | File Path | Endpoint / Symbol |
+|-----------|-----------|-------------------|
+| Chat Endpoint | `backend/app/api/routes/chat.py` | `chat_endpoint()`, `generate_stream()` |
+| Agent Graph | `backend/app/agents/assistant/graph.py` | `build_assistant_graph()` |
+| RAG Tool | `backend/app/agents/assistant/tools/search_documents.py` | `search_documents()` |
+| Vector Store | `backend/app/services/vector_store.py` | `similarity_search()` + HyDE |
+| Frontend Component | `frontend/src/components/chat/ChatWindow.tsx` | Chat UI + SSE stream parsing |
+
+---
+
+## UC-06: Automated Quiz Generation
+
+| Attribute | Details |
+|-----------|---------|
+| **UC ID** | UC-06 |
+| **Name** | Automated Multi-Agent Quiz Generation |
+| **Level** | User Goal |
+| **Primary Actor** | Authenticated User |
+| **Secondary Actor** | Multi-Agent System (Generator, Evaluator, Synthesizer) |
+| **Description** | User requests N multiple-choice questions → Multi-Agent system generates grounded quiz |
+| **Preconditions** | Library contains ready documents |
+| **Postconditions** | Quiz saved to DB and rendered inline in the chat conversation |
+
+### Main Success Scenario
+
+| Step | Actor | Action |
+|------|-------|--------|
+| 1 | User | Chats: "Generate 20 multiple choice questions on Chapter 3" |
+| 2 | Supervisor | Detects intent and calls `generate_quiz(num_questions=20, focus_topic="Chapter 3")` |
+| 3 | Frontend | Receives SSE: `tool_status` ("Planning 20 quiz questions...") |
+| 4 | Init Node | Calculates batch count (ceil(20/20) = 1) and generates aspect hints |
+| 5 | Frontend | Receives SSE: `tool_status` ("Planned 1 batch. Starting batch 1...") |
+| 6 | Generator | Executes HyDE search for context and generates 20 questions |
+| 7 | Frontend | Receives SSE: `tool_status` ("Generating questions for batch 1/1...") |
+| 8 | Evaluator | Evaluates question clarity and answer accuracy (approved / rejected) |
+| 9a | (Approved) | Passes questions to synthesizer node |
+| 9b | (Rejected) | Prompts generator to regenerate with critique feedback (max 2 retries) |
+| 10 | Synthesizer | Gathers passing questions and dispatches SSE `quiz_batch` event |
+| 11 | Frontend | Receives SSE: `quiz_batch` and renders real-time question cards |
+| 12 | System | Automatically saves quiz to database (`quizzes` and `quiz_questions`) |
+| 13 | Frontend | Receives SSE: `quiz_ready` (with `quiz_id`) and fetches details |
+| 14 | Frontend | Renders `QuizPreviewCard` directly inline in the chat timeline |
+| 15 | System | Saves assistant message referencing `quiz_id` into `chat_messages` |
+
+### Alternate Flows
+
+| Step | Condition | Action |
+|------|-----------|--------|
+| 6a | Mock mode active | Generator supplies pre-formatted mock questions |
+| 8a | Evaluator rejects (retry 1) | Generator regenerates with targeted critique feedback |
+| 8b | Evaluator rejects (retry 2) | Best-effort accepted questions passed to synthesizer |
+| 6b | Rate limit 429 encountered | Saves accumulated questions; returns partial success warning |
+| 1a | Question count omitted | Defaults to 10 questions according to system prompt |
+
+### Technical Mapping
+
+| Component | File Path | Endpoint / Symbol |
+|-----------|-----------|-------------------|
+| Quiz Tool | `backend/app/agents/assistant/tools/generate_quiz/tool.py` | `generate_quiz()` |
 | Subgraph | `backend/app/agents/assistant/tools/generate_quiz/subgraph.py` | init → generator → evaluator → synthesizer |
-| Generator | `backend/app/agents/assistant/tools/generate_quiz/nodes/generator_node.py` | `generator_node()` |
-| Evaluator | `backend/app/agents/assistant/tools/generate_quiz/nodes/evaluator_node.py` | `evaluator_node()` |
-| Synthesizer | `backend/app/agents/assistant/tools/generate_quiz/nodes/synthesizer_node.py` | `synthesizer_node()` |
-| Auto-save | `backend/app/api/routes/chat.py` | `save_quiz_to_db()` |
+| Generator Node | `backend/app/agents/assistant/tools/generate_quiz/nodes/generator_node.py` | `generator_node()` |
+| Evaluator Node | `backend/app/agents/assistant/tools/generate_quiz/nodes/evaluator_node.py` | `evaluator_node()` |
+| Synthesizer Node | `backend/app/agents/assistant/tools/generate_quiz/nodes/synthesizer_node.py` | `synthesizer_node()` |
+| Auto-Save Logic | `backend/app/api/routes/chat.py` | `save_quiz_to_db()` |
 
 ---
 
-## UC-07: Chỉnh sửa và lưu đề trắc nghiệm
+## UC-07: Inline Quiz Editing and Saving
 
-| Thuộc tính | Chi tiết |
-|-----------|----------|
-| **Mã UC** | UC-07 |
-| **Tên** | Chỉnh sửa đề trắc nghiệm inline |
-| **Mức độ** | User Goal |
-| **Tác nhân chính** | Người dùng đã đăng nhập |
-| **Mô tả** | Người dùng chỉnh sửa nội dung câu hỏi, đáp án, giải thích ngay trong giao diện chat |
-| **Tiền điều kiện** | Đã có quiz được sinh từ UC-06 |
-| **Hậu điều kiện** | Quiz đã cập nhật trong DB (`is_edited_by_user = true`) |
+| Attribute | Details |
+|-----------|---------|
+| **UC ID** | UC-07 |
+| **Name** | Inline Quiz Editing and Revision |
+| **Level** | User Goal |
+| **Primary Actor** | Authenticated User |
+| **Description** | User modifies question text, choices, correct answers, or explanations inline |
+| **Preconditions** | Quiz generated from UC-06 |
+| **Postconditions** | Quiz updated in database with `is_edited_by_user = true` |
 
-### Luồng chính
+### Main Success Scenario
 
-| Bước | Tác nhân | Hành động |
-|------|---------|-----------|
-| 1 | Người dùng | Tại QuizPreviewCard, nhấn nút "Chỉnh sửa" |
-| 2 | Frontend | Chuyển QuizPreviewCard → QuizEditorCard |
-| 3 | Người dùng | Sửa nội dung câu hỏi, đáp án A/B/C/D, đáp án đúng, giải thích |
-| 4 | Người dùng | Có thể xóa câu hỏi hoặc thay đổi thứ tự |
-| 5 | Người dùng | Nhấn "Lưu thay đổi" |
-| 6 | Frontend | `PUT /api/quizzes/{quiz_id}` (gửi toàn bộ questions mới) |
-| 7 | Hệ thống | Xóa toàn bộ questions cũ, insert questions mới |
-| 8 | Hệ thống | Set `is_edited_by_user = true` |
-| 9 | Frontend | Chuyển về QuizPreviewCard với nội dung đã cập nhật |
+| Step | Actor | Action |
+|------|-------|--------|
+| 1 | User | On `QuizPreviewCard`, clicks "Edit Quiz" |
+| 2 | Frontend | Transitions component to `QuizEditorCard` |
+| 3 | User | Edits question text, options A/B/C/D, correct answer, or explanation |
+| 4 | User | Optionally deletes questions or reorganizes question order |
+| 5 | User | Clicks "Save Changes" |
+| 6 | Frontend | Calls `PUT /api/quizzes/{quiz_id}` with full updated question payload |
+| 7 | System | Deletes previous questions and inserts updated question records |
+| 8 | System | Flags quiz with `is_edited_by_user = true` |
+| 9 | Frontend | Transitions back to `QuizPreviewCard` with revised content |
 
-### Mapping kỹ thuật
+### Technical Mapping
 
-| Component | File |
-|-----------|------|
-| Backend route | `backend/app/api/routes/quizzes.py` → `PUT /api/quizzes/{quiz_id}` |
-| Frontend editor | `frontend/src/components/quiz/QuizEditorCard.tsx` |
-| Frontend preview | `frontend/src/components/quiz/QuizPreviewCard.tsx` |
-
----
-
-## UC-08: Xuất đề trắc nghiệm PDF
-
-| Thuộc tính | Chi tiết |
-|-----------|----------|
-| **Mã UC** | UC-08 |
-| **Tên** | Xuất đề trắc nghiệm thành file PDF |
-| **Mức độ** | User Goal |
-| **Tác nhân chính** | Người dùng đã đăng nhập |
-| **Mô tả** | Người dùng xuất bộ đề trắc nghiệm đã có thành file PDF để in ấn hoặc chia sẻ |
-| **Tiền điều kiện** | Đã có quiz (UC-06 hoặc UC-07) |
-| **Hậu điều kiện** | File PDF được download về máy |
-
-### Luồng chính
-
-| Bước | Tác nhân | Hành động |
-|------|---------|-----------|
-| 1 | Người dùng | Tại QuizPreviewCard, nhấn nút "Xuất PDF" |
-| 2 | Frontend | QuizPdfExport component tạo PDF bằng jsPDF |
-| 3 | Frontend | Format: tiêu đề, câu hỏi (1→N), lựa chọn A/B/C/D |
-| 4 | Frontend | Trang đáp án cuối cùng (correct_answer + explanation) |
-| 5 | Frontend | Trigger browser download `quiz_<title>.pdf` |
-
-### Mapping kỹ thuật
-
-| Component | File |
-|-----------|------|
-| Frontend export | `frontend/src/components/quiz/QuizPdfExport.tsx` |
-| PDF library | `jspdf` (client-side PDF generation) |
+| Component | File Path |
+|-----------|-----------|
+| Backend Route | `backend/app/api/routes/quizzes.py` → `PUT /api/quizzes/{quiz_id}` |
+| Frontend Editor | `frontend/src/components/quiz/QuizEditorCard.tsx` |
+| Frontend Preview | `frontend/src/components/quiz/QuizPreviewCard.tsx` |
 
 ---
 
-## Sơ đồ Use Case tổng quan
+## UC-08: Export Quiz to PDF
+
+| Attribute | Details |
+|-----------|---------|
+| **UC ID** | UC-08 |
+| **Name** | Export Quiz as Printable PDF Document |
+| **Level** | User Goal |
+| **Primary Actor** | Authenticated User |
+| **Description** | User exports quiz questions and answer keys to a structured PDF file |
+| **Preconditions** | Quiz exists in the active session (UC-06 or UC-07) |
+| **Postconditions** | Formatted PDF downloaded to the user's computer |
+
+### Main Success Scenario
+
+| Step | Actor | Action |
+|------|-------|--------|
+| 1 | User | On `QuizPreviewCard`, clicks "Export PDF" |
+| 2 | Frontend | `QuizPdfExport` component initiates client-side rendering via jsPDF |
+| 3 | Frontend | Formats header, title, and numbered questions with choices A/B/C/D |
+| 4 | Frontend | Appends answer key and explanation section on the final page |
+| 5 | Frontend | Triggers automatic browser download: `quiz_<title>.pdf` |
+
+### Technical Mapping
+
+| Component | File Path |
+|-----------|-----------|
+| Frontend Export Component | `frontend/src/components/quiz/QuizPdfExport.tsx` |
+| PDF Engine | `jspdf` (Client-side rendering) |
+
+---
+
+## Overall Use Case Diagram
 
 ```
                          ┌──────────────────────────────────────┐
                          │           RAQ Chatbot System         │
                          │                                      │
      ┌──────────┐        │  ┌─────────────────────────────────┐ │
-     │          │        │  │ UC-01: Đăng ký tài khoản        │ │
-     │  Người   │───────▶│  │ UC-02: Đăng nhập hệ thống      │ │
-     │  dùng    │        │  │ UC-03: Quản lý Thư viện         │ │
-     │ (Student/│        │  │ UC-04: Upload & xử lý PDF       │ │
-     │ Teacher) │        │  │ UC-05: Chat RAG hỏi đáp         │ │
-     │          │        │  │ UC-06: Tạo đề trắc nghiệm       │ │
-     └──────────┘        │  │ UC-07: Chỉnh sửa đề trắc nghiệm│ │
-                         │  │ UC-08: Xuất PDF đề thi           │ │
+     │          │        │  │ UC-01: Register New Account     │ │
+     │  User    │───────▶│  │ UC-02: User Authentication      │ │
+     │ (Student │        │  │ UC-03: Manage Document Libraries│ │
+     │  Teacher)│        │  │ UC-04: PDF Upload & Ingestion   │ │
+     │          │        │  │ UC-05: RAG Document QA Chat     │ │
+     │          │        │  │ UC-06: Generate Quizzes         │ │
+     └──────────┘        │  │ UC-07: Edit & Save Quizzes      │ │
+                         │  │ UC-08: Export Quiz to PDF       │ │
                          │  └─────────────────────────────────┘ │
                          │                                      │
                          │         «uses»           «uses»      │
@@ -407,23 +407,23 @@
                          └──────────────────────────────────────┘
 ```
 
-### Ma trận Actor → Use Case
+### Actor → Use Case Matrix
 
 | Actor | UC-01 | UC-02 | UC-03 | UC-04 | UC-05 | UC-06 | UC-07 | UC-08 |
 |-------|-------|-------|-------|-------|-------|-------|-------|-------|
-| Người dùng (chưa đăng nhập) | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
-| Người dùng (đã đăng nhập) | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
-| LLM API | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
-| MinIO | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
+| Unauthenticated User | ✅ | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Authenticated User | ❌ | ❌ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| LLM APIs | ❌ | ❌ | ❌ | ❌ | ✅ | ✅ | ❌ | ❌ |
+| MinIO S3 | ❌ | ❌ | ❌ | ✅ | ❌ | ❌ | ❌ | ❌ |
 | NVIDIA Embedding API | ❌ | ❌ | ❌ | ✅ | ✅ | ✅ | ❌ | ❌ |
 
-### Quan hệ giữa các Use Case
+### Use Case Relationships
 
-| Quan hệ | Mô tả |
-|---------|--------|
-| UC-03 `<<extends>>` UC-01 | Phải đăng ký trước mới tạo thư viện |
-| UC-04 `<<extends>>` UC-03 | Phải có thư viện trước mới upload |
-| UC-05 `<<extends>>` UC-04 | Phải có tài liệu ready mới chat RAG |
-| UC-06 `<<extends>>` UC-05 | Sinh quiz là một loại chat action |
-| UC-07 `<<extends>>` UC-06 | Chỉnh sửa quiz đã được sinh |
-| UC-08 `<<extends>>` UC-06/07 | Xuất PDF từ quiz đã có |
+| Relationship | Description |
+|--------------|-------------|
+| UC-03 `<<extends>>` UC-01 | Account registration must precede library creation |
+| UC-04 `<<extends>>` UC-03 | An active library must exist before uploading documents |
+| UC-05 `<<extends>>` UC-04 | Grounded chat requires at least one processed document |
+| UC-06 `<<extends>>` UC-05 | Quiz generation operates as an specialized chat workflow |
+| UC-07 `<<extends>>` UC-06 | Editing requires an existing generated quiz |
+| UC-08 `<<extends>>` UC-06/07 | PDF export is performed on a generated or edited quiz |
