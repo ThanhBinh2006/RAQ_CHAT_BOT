@@ -411,7 +411,11 @@ Quiz Subgraph là một **StateGraph lồng** (nested graph) với 4 nodes và v
                                         └────────────────┘
 ```
 
-### 6.2 Mô tả chi tiết các bảng
+### 6.2 Sơ đồ tương tác
+
+> 📎 Mở file [db.html](./db.html) trong trình duyệt để xem ERD tương tác với dây nối quan hệ 1-N động, hover highlight và đầy đủ thuộc tính của 9 bảng.
+
+### 6.3 Mô tả chi tiết các bảng
 
 | # | Bảng | Mô tả | Quan hệ |
 |---|------|--------|---------|
@@ -425,7 +429,7 @@ Quiz Subgraph là một **StateGraph lồng** (nested graph) với 4 nodes và v
 | 8 | `quizzes` | Bộ đề trắc nghiệm | N:1 → libraries, 1:N → questions |
 | 9 | `quiz_questions` | Câu hỏi trắc nghiệm (4 lựa chọn A/B/C/D) | N:1 → quizzes |
 
-### 6.3 Indexes quan trọng
+### 6.4 Indexes quan trọng
 
 ```sql
 CREATE INDEX idx_libraries_user ON libraries(user_id);
