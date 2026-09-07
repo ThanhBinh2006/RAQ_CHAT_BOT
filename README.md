@@ -197,10 +197,10 @@ docker compose down -v       # Xóa cả volumes (mất dữ liệu)
 
 | File | Nội dung |
 |------|----------|
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | Kiến trúc hệ thống, sơ đồ luồng dữ liệu, thiết kế Agent Graph |
-| [API.md](./API.md) | Đặc tả API RESTful chi tiết (endpoint, request/response, mã lỗi) |
-| [USECASES.md](./USECASES.md) | Đặc tả Use Case theo Cockburn (UC-01 → UC-08) |
-| [DEPLOYMENT.md](./DEPLOYMENT.md) | Hướng dẫn triển khai production, Docker, giám sát |
+| [ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Kiến trúc hệ thống, sơ đồ luồng dữ liệu, thiết kế Agent Graph |
+| [API.md](./docs/API.md) | Đặc tả API RESTful chi tiết (endpoint, request/response, mã lỗi) |
+| [USECASES.md](./docs/USECASES.md) | Đặc tả Use Case theo Cockburn (UC-01 → UC-08) |
+| [DEPLOYMENT.md](./docs/DEPLOYMENT.md) | Hướng dẫn triển khai production, Docker, giám sát |
 
 ---
 
