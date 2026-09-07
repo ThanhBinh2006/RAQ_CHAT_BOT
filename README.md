@@ -45,11 +45,11 @@
 | Layer | Technology | Version |
 |-------|------------|---------|
 | **Frontend** | Next.js (App Router), React, TailwindCSS v4, Vercel AI SDK | Next 16.x, React 19.x |
-| **Backend** | FastAPI (Python, Async) | 0.115+ |
-| **AI Engine** | LangChain + LangGraph (Multi-Agent StateGraph) | LangChain 0.3.x, LangGraph 0.2.x |
+| **Backend** | FastAPI (Python, Async) | 0.141+ |
+| **AI Engine** | LangChain + LangGraph (Multi-Agent StateGraph) | LangChain 1.3+, LangGraph 1.2+ |
 | **Database** | PostgreSQL + pgvector (Vector 2048 dims) | PG 16 + pgvector |
 | **Object Storage** | MinIO (S3-compatible) | Latest |
-| **PDF Processing** | PyMuPDF (fitz) | 1.24+ |
+| **PDF Processing** | PyMuPDF (fitz) | 1.28+ |
 | **Embedding** | NVIDIA NeMo Retriever / Nemotron-3-Embed-1B | 2048 dims |
 | **Default LLM** | DeepSeek V4 Pro (via NVIDIA NIM) | deepseek-v4-pro-0813 |
 | **Auth** | JWT (python-jose), bcrypt | HS256, 24h TTL |

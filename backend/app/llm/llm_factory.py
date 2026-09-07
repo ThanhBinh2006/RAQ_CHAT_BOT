@@ -138,7 +138,6 @@ def get_llm(
             model=model_name,
             google_api_key=api_key,
             temperature=temperature,
-            thinking_budget=0,
         )
 
     if provider == "openai":
