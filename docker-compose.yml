@@ -47,6 +47,9 @@ services:
     restart: unless-stopped
     ports:
       - "8000:8000"
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@postgres:5432/raq_chatbot
+
     env_file:
       - path: ./backend/.env
     depends_on:
